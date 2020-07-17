@@ -11,4 +11,6 @@
 #define MD5_HASHSIZE       16
 void md5 (const char *message, long len, char *output);
 
+void md5_hexdigest(const char* message, long len, char* output);
+
 #endif

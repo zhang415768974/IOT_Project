@@ -64,6 +64,12 @@ static const WORD32 T[64]={
                      0xf7537e82, 0xbd3af235, 0x2ad7d2bb, 0xeb86d391
 };
 
+static const char HEX[16] = {
+							'0', '1', '2', '3',
+							'4', '5', '6', '7',
+							'8', '9', 'a', 'b',
+							'c', 'd', 'e', 'f'
+};
 
 static void word32tobytes (const WORD32 *input, char *output) {
   int j = 0;
@@ -210,5 +216,16 @@ void md5 (const char *message, long len, char *output) {
     i += numbytes;
   }
   word32tobytes(d, output);
+}
+
+void md5_hexdigest(const char* message, long len, char* output) {
+	unsigned char i, t;
+	char buf[MD5_HASHSIZE];
+	md5(message, len, buf);
+	for (i = 0; i != MD5_HASHSIZE; ++i) {
+		t = buf[i];
+		output[i * 2] = HEX[t / 16];
+		output[i * 2 + 1] = HEX[t % 16];
+	}
 }
 

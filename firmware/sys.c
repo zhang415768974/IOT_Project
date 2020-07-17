@@ -6,15 +6,18 @@
 
 #include "sys.h"
 #include "cmd.h"
+#include "md5.h"
 
 #define UART_BUF_SIZE 512
 #define SEND_BUF_SIZE 512
+#define POST_BUF_SIZE 512
+#define PACKAGE_DATA_SIZE 128
 
 #define FLASH_KEY1			0x45670123
 #define FLASH_KEY2			0xCDEF89AB	
 
-__align(4) static unsigned char USART1_TX_BUF[UART_BUF_SIZE];
-__align(4) static unsigned char USART2_TX_BUF[UART_BUF_SIZE];
+__align(4) static char USART1_TX_BUF[UART_BUF_SIZE];
+__align(4) static char USART2_TX_BUF[UART_BUF_SIZE];
 
 static unsigned char USART2_RX_BUF[UART_BUF_SIZE];
 static unsigned short USART2_RX_COUNT;
@@ -47,9 +50,9 @@ static void uart_dma_enable(DMA_Channel_TypeDef* DMA_CHx, unsigned short len) {
 void u1_printf(char* fmt, ...) {
 	va_list ap;
 	va_start(ap, fmt);
-	vsprintf((char*)USART1_TX_BUF, fmt, ap);
+	vsnprintf(USART1_TX_BUF, UART_BUF_SIZE, fmt, ap);
 	va_end(ap);
-	uart_dma_enable(DMA1_Channel4, strlen((const char*)USART1_TX_BUF) + 1);
+	uart_dma_enable(DMA1_Channel4, strlen((const char*)USART1_TX_BUF));
 	while (DMA1_Channel4->CNDTR != 0);
 }
 
@@ -57,9 +60,9 @@ void u1_printf(char* fmt, ...) {
 void u2_printf(char* fmt, ...) {
 	va_list ap;
 	va_start(ap, fmt);
-	vsprintf((char*)USART2_TX_BUF, fmt, ap);
+	vsnprintf(USART2_TX_BUF, UART_BUF_SIZE, fmt, ap);
 	va_end(ap);
-	uart_dma_enable(DMA1_Channel7, strlen((const char*)USART2_TX_BUF) + 1);
+	uart_dma_enable(DMA1_Channel7, strlen((const char*)USART2_TX_BUF));
 	while (DMA1_Channel7->CNDTR != 0);
 }
 
@@ -149,6 +152,17 @@ void TIM3_IRQHandler() {
 }
 
 
+void TIM4_IRQHandler() {
+	
+	if (TIM4->SR & TIM_SR_UIF) {
+		if (ESP8266_READY == WIFI_Connected) {
+			
+		}
+		TIM4->SR &= ~TIM_SR_UIF;
+	}
+}
+
+
 void USART1_IRQHandler() {
 	static char recv_buf_data[UART_BUF_SIZE];
 	static unsigned char index = 0;
@@ -176,7 +190,6 @@ void USART1_IRQHandler() {
 			index = 0;
 			u1_printf("\r\n");
 			process_cmdline(recv_buf_data);
-			//delay(100);
 			memset(recv_buf_data, 0, UART_BUF_SIZE);
 			u1_printf("=> ");
 		}
@@ -187,7 +200,7 @@ void USART1_IRQHandler() {
 void USART2_IRQHandler() {
 	if ((USART2->SR & USART_SR_RXNE) &&
 		USART2_RX_COUNT < UART_BUF_SIZE - 1) {
-		USART2_RX_BUF[USART2_RX_COUNT++] = (unsigned char)USART2->DR;
+		USART2_RX_BUF[USART2_RX_COUNT++] = USART2->DR & 0xFF;
 	}
 }
 
@@ -259,6 +272,19 @@ void tim3_init(unsigned short arr, unsigned short psc) {
 }
 
 
+void tim4_init(unsigned short arr, unsigned short psc) {
+	RCC->APB1ENR |= RCC_APB1ENR_TIM4EN;
+	TIM4->ARR = arr;
+	TIM4->PSC = psc;
+	TIM4->DIER = TIM_DIER_UIE;
+	// 设置定时器中断
+	NVIC->ISER[TIM4_IRQn / 32] |= 1 << (TIM4_IRQn % 32);
+	// 抢占优先级最低1100
+	NVIC_SetPriority(TIM4_IRQn, 0xC);
+	TIM4->CR1 = TIM_CR1_CEN;
+}
+
+
 void led_init() {
 	RCC->APB2ENR |= RCC_APB2ENR_IOPAEN | RCC_APB2ENR_IOPBEN;
 	GPIOA->CRL &= ~(0xF << 24);
@@ -312,6 +338,7 @@ void u2_init() {
 
 
 unsigned char esp8266_cmd(const char* cmd, const char* ack, unsigned short waittime, char* output) {
+	delay(20);
 	USART2_RX_COUNT = 0;
 	u2_printf("%s\r\n", cmd);
 	if (ack && waittime) {
@@ -323,9 +350,6 @@ unsigned char esp8266_cmd(const char* cmd, const char* ack, unsigned short waitt
 	if (output) {
 		strncpy(output, (const char*)USART2_RX_BUF, strlen((const char*)USART2_RX_BUF));
 	}
-#ifdef DEBUG
-	//u1_printf("response:\r\n%s", USART2_RX_BUF);
-#endif
 	if (ack && strstr((const char*)USART2_RX_BUF, ack)) {
 		return 1;
 	}
@@ -333,66 +357,110 @@ unsigned char esp8266_cmd(const char* cmd, const char* ack, unsigned short waitt
 }
 
 
-
 void esp8266_init(void) {
 	char buf[128];
-	ESP8266_READY = 1;
+	if (ESP8266_READY == WIFI_Connecting || ESP8266_READY == WIFI_Connected) {
+		return;
+	}
+	GPIOA->BSRR |= 1 << 22;
+	ESP8266_READY = WIFI_Connecting;
 	u1_printf("设置esp8266为STA模式\r\n");
 	esp8266_cmd("AT+CIPMODE=0", "OK", 200, NULL);
 	if (esp8266_cmd("AT+CWMODE=1", "OK", 200, NULL) != 1) {
-		ESP8266_READY = 0;
+		ESP8266_READY = WIFI_NoConnected;
 		return;
 	}
-	u1_printf("复位esp8266\r\n");
-	esp8266_cmd("AT+RST", "version", 500, NULL);
-	u1_printf("开始连接[%s]\r\n", iot_data->wifi_name);
+	//u1_printf("复位esp8266\r\n");
+	//esp8266_cmd("AT+RST", "version", 2000, NULL);
+	//delay(1000);
+	u1_printf("开始连接无线网络[%s]\r\n", iot_data->wifi_name);
 	sprintf(buf, "AT+CWJAP=\"%s\",\"%s\"", iot_data->wifi_name, iot_data->wifi_password);
 	if (esp8266_cmd(buf, "OK", 5000, NULL) != 1) {
-		ESP8266_READY = 0;
+		ESP8266_READY = WIFI_NoConnected;
 		return;
 	}
-	u1_printf("设置esp8266非透传模式\r\n");
+	u1_printf("设置esp8266非透传模式\r\n");	
 	esp8266_cmd("AT+CIPMODE=0", "OK", 200, NULL);
 	u1_printf("设置esp8266单播模式\r\n");
 	esp8266_cmd("AT+CIPMUX=0", "OK", 200, NULL);
 	u1_printf("查询esp8266网络信息\r\n");
 	if (esp8266_cmd("AT+CIFSR", "OK", 200, buf) != 1) {
-		ESP8266_READY = 0;
+		ESP8266_READY = WIFI_NoConnected;
 		return;
 	}
-	u1_printf(buf);
-	ESP8266_READY = 2;
+	u1_printf("%s\r\n", buf);
+	ESP8266_READY = WIFI_Connected;
 	u1_printf("Done\r\n");
 }
 
 
-void esp8266_send(const char* data, char* output) {
-	
-	char buf[SEND_BUF_SIZE];
+void request_status_package(char* output) {
+	char signature_data[SIGNATURE_BUF_SIZE];
+	char token_data[MD5_HASHSIZE * 2 + 1];
+	unsigned int timestamp;
+
+	timestamp = 123456;
+	sprintf(signature_data, "iot#1#%s#%u#%u#%s",
+		iot_data->machineid,
+		iot_data->customerid,
+		timestamp,
+		iot_data->secret_key
+	);
+	memset(token_data, 0, sizeof(token_data));
+	md5_hexdigest(signature_data, strlen(signature_data), token_data);
+	sprintf(output, "data=iot#1#%s#%u#%u#%s#eof",
+		iot_data->machineid,
+		iot_data->customerid,
+		timestamp,
+		token_data
+	);
+}
+
+
+void iot_update(char* output) {
+	char temp[128];
+	char data_package[PACKAGE_DATA_SIZE];
 	char post_data[SEND_BUF_SIZE];
 	unsigned short len;
-	const char* send_data = "data=iot#1#abcd1234#1594272930#a79302467dce65c13b2b7397a19ab1cb#eof";
-	sprintf(post_data, "POST / HTTP/1.1\r\nContent-Type: application/x-www-form-urlencoded\r\nUser-Agent: iot_esp8266_module\r\nContent-Length:%d\r\n\r\n%s", strlen(send_data), send_data);
 	
-	//u1_printf("%s", post_data);
-	if (ESP8266_READY == 0) {
+	if (ESP8266_READY == WIFI_NoConnected || ESP8266_READY == WIFI_Connecting) {
 		esp8266_init();
 		return;
 	}
-	if (ESP8266_READY == 1) {
+	if (ESP8266_READY == WIFI_Connecting) {
 		return;
 	}
+	if (ESP8266_READY != WIFI_Connected) {
+		return;
+	}
+
+	memset(data_package, 0, PACKAGE_DATA_SIZE);
+	request_status_package(data_package);
+	sprintf(post_data, "POST / HTTP/1.1\r\n"
+		"Content-Type: application/x-www-form-urlencoded\r\n"
+		"User-Agent: iot_esp8266_module\r\n"
+		"Content-Length:%d\r\n"
+		"\r\n%s", strlen(data_package), data_package);
+
 	len = strlen(post_data);
 	if (len > SEND_BUF_SIZE) {
 		return;
 	}
-	sprintf(buf, "AT+CIPSTART=\"TCP\",\"%s\",%d", iot_data->server_ip, iot_data->server_port);
-	if (esp8266_cmd(buf, "CONNECT", 1000, NULL) != 1) {
-		ESP8266_READY = 0;
-		return;
+	sprintf(temp, "AT+CIPSTART=\"TCP\",\"%s\",%d", iot_data->server_ip, iot_data->server_port);
+	if (esp8266_cmd(temp, "CONNECT", 1000, NULL) == 1) {
+		GPIOA->BSRR |= 1 << 6;
+		u1_printf("连接服务器[%s:%u]成功 \r\n", iot_data->server_ip, iot_data->server_port);
 	}
-	sprintf(buf, "AT+CIPSEND=%d", len);
-	esp8266_cmd(buf, "OK", 200, NULL);
-	esp8266_cmd(post_data, "iot", 2000, output);
-	esp8266_cmd("AT+CIPCLOSE", "OK", 200, NULL);
+
+	sprintf(temp, "AT+CIPSEND=%d", len);
+	esp8266_cmd(temp, "OK", 200, NULL);
+	
+	esp8266_cmd(post_data, "iot", 1000, output);
+	delay(200);
+	//u1_printf("recv:%s\r\n", output);
+	if (esp8266_cmd("AT+CIPCLOSE", "OK", 200, NULL) == 1) {
+		delay(50);
+		GPIOA->BSRR |= 1 << 22;
+		u1_printf("通信结束,断开与服务器的连接 \r\n");
+	}
 }

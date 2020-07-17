@@ -28,7 +28,7 @@ _1 = '''
 '''
 
 
-class ErrCodeEnum(object):
+class OpCodeEnum(object):
     success = 0
     oauth_error = 1
     cmd_error = 2
@@ -82,8 +82,8 @@ class MainHandler(tornado.web.RequestHandler):
 
 
     @gen.coroutine
-    def get_device_status(self, machineid):
-        error_code, response = ErrCodeEnum.success, ""
+    def get_device_status(self, machineid, customerid):
+        result_code, response = OpCodeEnum.success, ""
         if machineid not in globalcache:
             mysqlconn = globalcontext["mysql"]
             mysqlconn.ping()
@@ -91,70 +91,74 @@ class MainHandler(tornado.web.RequestHandler):
             sql = '''select a.id, a.customerid, a.starttime, a.endtime, a.init_status, a.io_status, b.username, b.mobile from tb_device as a
             left join tb_customer as b
             on a.customerid = b.id
-            where a.machineid = %(machineid)s limit 1'''
-            rowcount = cursor.execute(sql, {"machineid": machineid})
+            where a.machineid = %(machineid)s and a.customerid = %(customerid)s limit 1'''
+            rowcount = cursor.execute(sql, {"machineid": machineid, "customerid": customerid})
             if rowcount == 0:
-                error_code = ErrCodeEnum.device_notexists
+                result_code = OpCodeEnum.device_notexists
                 logging.warning("%s not exists" % machineid)
             else:
                 result = cursor.fetchone()
                 if not result or result["customerid"] == 0:
-                    error_code = ErrCodeEnum.device_notregister
+                    result_code = OpCodeEnum.device_notregister
                     logging.warning("%s no register" % machineid)
                 else:
                     if result["starttime"] and result["endtime"] and not result["starttime"] <= datetime.datetime.now() <= result["endtime"]:
-                        error_code = ErrCodeEnum.expire
+                        result_code = OpCodeEnum.expire
                         logging.warning("%s - %s expire" % (result["username"], machineid))
                     else:
                         globalcache[machineid] = result
                         logging.info("%s - %s online" % (result["username"], machineid))
             cursor.close()
             mysqlconn.close()
-        if error_code == ErrCodeEnum.success:
+        if result_code == OpCodeEnum.success:
             globalcache[machineid]["ttl"] = 2
             response = "res#1#%s" % globalcache[machineid]["io_status"]
-        raise gen.Return([error_code, response])
+        raise gen.Return([result_code, response])
 
 
     @gen.coroutine
-    def set_device_status(self, machineid, value):
-        error_code = ErrCodeEnum.success
+    def set_device_status(self, machineid, customerid, value):
+        result_code = OpCodeEnum.success
         if machineid not in globalcache:
-            error_code = ErrCodeEnum.device_notonline
-        if globalcache[machineid]["io_status"] != value:
-            mysqlconn = globalcontext["mysql"]
-            mysqlconn.ping()
-            cursor = mysqlconn.cursor(cursor=pymysql.cursors.DictCursor)
-            rowcount = cursor.execute("update tb_device set io_status = %(io_status)s where machineid = %(machineid)s", {"io_status": value, "machineid": machineid})
-            if rowcount > 0:
-                mysqlconn.commit()
-            cursor.close()
-            mysqlconn.close()
-            logging.info("%s - %s ioset %d" % (username, k, value))
-        raise gen.Return([error_code, "res#2#%d" % value])
+            result_code = OpCodeEnum.device_notonline
+        else:
+            if globalcache[machineid]["io_status"] != value:
+                mysqlconn = globalcontext["mysql"]
+                mysqlconn.ping()
+                cursor = mysqlconn.cursor(cursor=pymysql.cursors.DictCursor)
+                rowcount = cursor.execute("update tb_device set io_status = %(io_status)s where machineid = %(machineid)s and customerid = %(customerid)s", {"io_status": value, "machineid": machineid, "customerid": customerid})
+                if rowcount > 0:
+                    mysqlconn.commit()
+                cursor.close()
+                mysqlconn.close()
+                logging.info("%s - %s ioset %d" % (username, k, value))
+        raise gen.Return([result_code, "res#2#%d" % value])
 
 
     @gen.coroutine
     def do_request(self):
         rawdata = self.get_body_argument("data", "")
-        # logging.info("recv %s" % rawdata)
-        error_code, response = ErrCodeEnum.success, ""
+        logging.info("recv %s" % rawdata)
+        result_code, response = OpCodeEnum.success, ""
         if self.oauth(rawdata):
             self.set_header("Content-Type", "text/plain; charset=UTF-8")
             msg = rawdata.split("#")
-            cmd, machineid, timestamp = int(msg[1]), msg[2], int(msg[3])
-            if cmd == 1:
-                error_code, response = yield self.get_device_status(machineid)
-            elif cmd == 2:
-                value = int(msg[4]) & 0xFF
-                error_code, response = yield self.set_device_status(machineid, value)
+            cmd, machineid, customerid, timestamp = int(msg[1]), msg[2], int(msg[3]), int(msg[4])
+            if customerid != 0:
+                if cmd == 1:
+                    result_code, response = yield self.get_device_status(machineid, customerid)
+                elif cmd == 2:
+                    value = int(msg[4]) & 0xFF
+                    result_code, response = yield self.set_device_status(machineid, customerid, value)
+                else:
+                    result_code = OpCodeEnum.cmd_error
+                    # logging.error("cmd % error" % cmd)
             else:
-                error_code = ErrCodeEnum.cmd_error
-                # logging.error("cmd % error" % cmd)
+                result_code = OpCodeEnum.device_notregister
         else:
-            error_code = ErrCodeEnum.oauth_error
+            result_code = OpCodeEnum.oauth_error
             # logging.error("oauth error")
-        senddata = self.add_md5(response if error_code == ErrCodeEnum.success else "err#%d" % error_code)
+        senddata = self.add_md5(response if result_code == OpCodeEnum.success else "err#%d" % result_code)
         # logging.info("send %s" % senddata)
         self.write(senddata)
         self.finish()
