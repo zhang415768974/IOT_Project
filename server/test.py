@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 
 import os
+import ctypes
 import sys
 import signal
 import datetime
@@ -119,26 +120,23 @@ class MainHandler(tornado.web.RequestHandler):
     @gen.coroutine
     def set_device_status(self, machineid, customerid, value):
         result_code = OpCodeEnum.success
-        if machineid not in globalcache:
-            result_code = OpCodeEnum.device_notonline
-        else:
-            if globalcache[machineid]["io_status"] != value:
-                mysqlconn = globalcontext["mysql"]
-                mysqlconn.ping()
-                cursor = mysqlconn.cursor(cursor=pymysql.cursors.DictCursor)
-                rowcount = cursor.execute("update tb_device set io_status = %(io_status)s where machineid = %(machineid)s and customerid = %(customerid)s", {"io_status": value, "machineid": machineid, "customerid": customerid})
-                if rowcount > 0:
-                    mysqlconn.commit()
-                cursor.close()
-                mysqlconn.close()
-                logging.info("%s - %s ioset %d" % (username, k, value))
+        mysqlconn = globalcontext["mysql"]
+        mysqlconn.ping()
+        cursor = mysqlconn.cursor(cursor=pymysql.cursors.DictCursor)
+        rowcount = cursor.execute("update tb_device set io_status = %(io_status)s where machineid = %(machineid)s and customerid = %(customerid)s", {"io_status": value, "machineid": machineid, "customerid": customerid})
+        if rowcount > 0:
+            mysqlconn.commit()
+        cursor.close()
+        mysqlconn.close()
+        logging.info("%s ioset %d" % (customerid, value))
         raise gen.Return([result_code, "res#2#%d" % value])
 
 
     @gen.coroutine
     def do_request(self):
         rawdata = self.get_body_argument("data", "")
-        logging.info("recv %s" % rawdata)
+        if int(globalconfig["server"]["debug"]):
+            logging.info("recv %s" % rawdata)
         result_code, response = OpCodeEnum.success, ""
         if self.oauth(rawdata):
             self.set_header("Content-Type", "text/plain; charset=UTF-8")
@@ -148,7 +146,7 @@ class MainHandler(tornado.web.RequestHandler):
                 if cmd == 1:
                     result_code, response = yield self.get_device_status(machineid, customerid)
                 elif cmd == 2:
-                    value = int(msg[4]) & 0xFF
+                    value = int(msg[5]) & 0xFF
                     result_code, response = yield self.set_device_status(machineid, customerid, value)
                 else:
                     result_code = OpCodeEnum.cmd_error
@@ -228,7 +226,7 @@ if __name__ == "__main__":
         for m, n in v.items():
             globalconfig[k][m] = n
     logging.info("load server config successfully!")
-
+    ctypes.windll.kernel32.SetConsoleTitleW("华慧物联网IOT网关服务器[运行中...]")
     mysql = globalconfig["mysql"]
     try:
         globalcontext["mysql"] = pymysql.connect(host=mysql["host"], port=int(mysql["port"]), user=mysql["user"], passwd=mysql["passwd"], db=mysql["db"], charset=mysql["charset"])

@@ -197,7 +197,6 @@ static int converte (WORD32 *x, const char *pt, int num, int old_status) {
 }
 
 
-
 void md5 (const char *message, long len, char *output) {
   WORD32 d[4];
   int status = 0;
@@ -217,6 +216,7 @@ void md5 (const char *message, long len, char *output) {
   }
   word32tobytes(d, output);
 }
+
 
 void md5_hexdigest(const char* message, long len, char* output) {
 	unsigned char i, t;

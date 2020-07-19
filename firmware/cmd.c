@@ -11,27 +11,36 @@
 #define	MAX_PARAM_SIZE 64
 #define	CMD_BUF_SIZE (MAX_PARAM_NUM * MAX_PARAM_SIZE)
 
+#define MAX_RESPONSE_SIZE 128
+
+u8 io_status;
+extern u8 wait_sync;
 
 static void reset_system() {
 	unsigned char count = 4;
 	while (count--) {
 		u1_printf("\r\b系统将在\033[1;31m%d\033[0m秒后重启...", count);
-		delay(1000);
+		delay_ms(1000);
 	}
 	SCB->AIRCR = 0x05FA0000 | SCB_AIRCR_SYSRESETREQ_Msk;
 }
 
 
-static set_gpio(char (*argv)[MAX_PARAM_SIZE]) {
+static void set_gpio(char (*argv)[MAX_PARAM_SIZE]) {
 	int idx = atoi(argv[1]);
 	if (idx < 0 || idx > 7) {
 		return;
 	}
-	if (atoi(argv[2])) {
-		GPIOB->ODR &= ~(1 << idx);
-	} else {
-		GPIOB->ODR |= 1 << idx;
+	if (wait_sync == 1) {
+		return;
 	}
+	
+	if (atoi(argv[2])) {
+		io_status |= 1 << idx;
+	} else {
+		io_status &= ~(1 << idx);
+	}
+	force_update_status(io_status);
 }
 
 
@@ -48,15 +57,13 @@ static void set_machineid(const char* str) {
 }
 
 
-/*
-static void set_welcome(const char* str) {
+static void set_model(const char* str) {
 	IOT_TypeDef iot;
 	memcpy(&iot, (const void*)USER_DATA_BASE, sizeof(iot));
-	memset(iot.welcome, 0, WELCOME_MAX);
-	strncpy(iot.welcome, str, strlen(str));
+	memset(iot.model, 0, MODEl_MAX);
+	strncpy(iot.model, str, strlen(str));
 	flash_write(USER_DATA_BASE, (char*)&iot, sizeof(iot));
 }
-*/
 
 
 static void set_wifiname(const char* str) {
@@ -81,7 +88,7 @@ static void set_serverip(const char* str) {
 	IOT_TypeDef iot;
 	memcpy(&iot, (const void*)USER_DATA_BASE, sizeof(iot));
 	memset(iot.server_ip, 0, SERVER_IP_MAX);
-	strncpy(iot.server_ip, str, strlen(str));
+	strncpy((char*)iot.server_ip, str, strlen(str));
 	flash_write(USER_DATA_BASE, (char*)&iot, sizeof(iot));
 }
 
@@ -90,12 +97,12 @@ static void set_secretkey(const char* str) {
 	IOT_TypeDef iot;
 	memcpy(&iot, (const void*)USER_DATA_BASE, sizeof(iot));
 	memset(iot.secret_key, 0, SECRET_KEY_MAX);
-	strncpy(iot.secret_key, str, strlen(str));
+	strncpy((char*)iot.secret_key, str, strlen(str));
 	flash_write(USER_DATA_BASE, (char*)&iot, sizeof(iot));
 }
 
 
-static void set_serverport(unsigned short port) {
+static void set_serverport(u16 port) {
 	IOT_TypeDef iot;
 	memcpy(&iot, (const void*)USER_DATA_BASE, sizeof(iot));
 	iot.server_port = port;
@@ -103,7 +110,7 @@ static void set_serverport(unsigned short port) {
 }
 
 
-static void set_customerid(unsigned int customerid) {
+static void set_customerid(u32 customerid) {
 	IOT_TypeDef iot;
 	memcpy(&iot, (const void*)USER_DATA_BASE, sizeof(iot));
 	iot.customerid = customerid;
@@ -148,11 +155,9 @@ void process_cmdline(const char* cmdline) {
 	} else if (strncmp(cmd, "md5sum", MAX_PARAM_SIZE) == 0) {
 		md5sum(argv[1]);
 	} else if (strncmp(cmd, "sleep", MAX_PARAM_SIZE) == 0) {
-		delay(atoi(argv[1]));
-	/*
-	} else if (strcmp(cmd, "setwelcome") == 0) {
-		set_welcome("欢迎使用stm32f103c8t6智能iot控制系统 Design By 猫咪也有理想 v1.0");
-	*/
+		delay_ms(atoi(argv[1]));
+	} else if (strcmp(cmd, "setmodel") == 0) {
+		set_model(argv[1]);
 	} else if (strncmp(cmd, "setwifiname", MAX_PARAM_SIZE) == 0) {
 		set_wifiname(argv[1]);
 	} else if (strncmp(cmd, "setwifipwd", MAX_PARAM_SIZE) == 0) {
@@ -170,7 +175,7 @@ void process_cmdline(const char* cmdline) {
 
 
 static unsigned char oauth(const char* data) {
-	unsigned int len, offset;
+	u32 len, offset;
 	char signature_src[SIGNATURE_BUF_SIZE];
 	char temp[MD5_HASHSIZE * 2 + 1];
 	len = strlen(data);
@@ -189,11 +194,34 @@ static unsigned char oauth(const char* data) {
 }
 
 
-void process_message(const char* message) {
-	const char* result;
+u8 process_message(const char* message) {
+	const char *result;
+	char buf[MAX_RESPONSE_SIZE];
+	u16 len;
+	char *p, *out_ptr;
+	u8 iodata_server, op_code;
 	result = strstr(message, "res");
-	// 必须严格验证收到的服务器数据完整性
-	if (oauth(result)) {
-		u1_printf("@@@\r\n");
+	// 必须严格验证从服务器收到的数据完整性
+	if (oauth(result) == 0) {
+		u1_printf("oauth error\r\n");
+		return 0;
 	}
+	led_double(80);
+	len = strlen(result);
+	if (len >= MAX_RESPONSE_SIZE) {
+		return 0;
+	}
+	memset(buf, 0, MAX_RESPONSE_SIZE);
+	strncpy(buf, result, len);
+
+	p = strtok_r(buf, "#", &out_ptr); // res
+	p = strtok_r(NULL, "#", &out_ptr); // 返回码
+	op_code = atoi(p);
+	p = strtok_r(NULL, "#", &out_ptr); // io状态值
+	iodata_server = atoi(p);
+	if (wait_sync == 0 && iodata_server != io_status) {
+		io_status = iodata_server;
+		u1_printf("io_status changed by server\r\n");
+	}
+	return op_code;
 }

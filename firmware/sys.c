@@ -8,10 +8,11 @@
 #include "cmd.h"
 #include "md5.h"
 
-#define UART_BUF_SIZE 512
-#define SEND_BUF_SIZE 512
-#define POST_BUF_SIZE 512
-#define PACKAGE_DATA_SIZE 128
+#define UART_BUF_SIZE 256
+#define SEND_BUF_SIZE 256
+#define RECV_BUF_SIZE 256
+#define PACKAGE_DATA_SIZE 256
+#define MAX_CONNECT_TIMES 5
 
 #define FLASH_KEY1			0x45670123
 #define FLASH_KEY2			0xCDEF89AB	
@@ -19,13 +20,15 @@
 __align(4) static char USART1_TX_BUF[UART_BUF_SIZE];
 __align(4) static char USART2_TX_BUF[UART_BUF_SIZE];
 
-static unsigned char USART2_RX_BUF[UART_BUF_SIZE];
-static unsigned short USART2_RX_COUNT;
-static unsigned char ESP8266_READY;
+static u8 USART2_RX_BUF[UART_BUF_SIZE];
+static u16 USART2_RX_COUNT;
+static u8 NET_STATUS;
+u8 wait_sync;
+extern u8 io_status;
 
-static void uart_dma_config(DMA_Channel_TypeDef* DMA_CHx, unsigned int cpar, unsigned int cmar, unsigned char priority) {
+static void uart_dma_config(DMA_Channel_TypeDef* DMA_CHx, u32 cpar, u32 cmar, u8 priority) {
 	RCC->AHBENR |= RCC_AHBENR_DMA1EN;
-	delay(1);
+	delay_ms(1);
 	DMA_CHx->CPAR = cpar;
 	DMA_CHx->CMAR = cmar;
 	DMA_CHx->CCR = 0;
@@ -40,10 +43,42 @@ static void uart_dma_config(DMA_Channel_TypeDef* DMA_CHx, unsigned int cpar, uns
 }
 
 
-static void uart_dma_enable(DMA_Channel_TypeDef* DMA_CHx, unsigned short len) {
+static void uart_dma_enable(DMA_Channel_TypeDef* DMA_CHx, u16 len) {
 	DMA_CHx->CCR &= ~DMA_CCR1_EN;
 	DMA_CHx->CNDTR = len;
 	DMA_CHx->CCR |= DMA_CCR1_EN;
+}
+
+
+void force_update_status(short status) {
+	u8 i;
+	if (status >= 0 && NET_STATUS == WIFI_Connected) {
+		wait_sync = 1;
+		// 手动触发中断进行数据同步
+		NVIC->STIR = TIM4_IRQn;
+	}
+	if (wait_sync == 1) {
+		// 有需要等待的同步数据，等待其它定时器将数据同步完成后再MCU更新IO状态
+		return;
+	}
+	for (i = 0; i != 8; ++i) {
+		if ((io_status >> i) & 0x1) {
+			GPIOB->ODR &= ~(1 << i);
+		} else {
+			GPIOB->ODR |= 1 << i;
+		}
+	}
+}
+
+
+void led_double(u16 interval) {
+	u8 i;
+	for (i = 0; i != 2; ++i) {
+		GPIOA->BSRR |= 1 << 6;
+		delay_ms(interval);
+		GPIOA->BSRR |= 1 << 22;
+		delay_ms(interval);
+	}
 }
 
 
@@ -67,9 +102,18 @@ void u2_printf(char* fmt, ...) {
 }
 
 
-void flash_write(unsigned int addr, const char* buf, unsigned short size) {
-	unsigned int secpos;
-	unsigned short i;
+void iwdg_init(void) {
+	IWDG->KR = 0x5555;
+	IWDG->PR = 4;
+	IWDG->RLR = 3125;
+	IWDG->KR = 0xAAAA;
+	IWDG->KR = 0xCCCC;
+}
+
+
+void flash_write(u32 addr, const char* buf, u16 size) {
+	u32 secpos;
+	u16 i;
 	if (addr < FLASH_BASE || addr > FLASH_BASE + 0x10000 - size) {
 		return;
 	}
@@ -88,7 +132,7 @@ void flash_write(unsigned int addr, const char* buf, unsigned short size) {
 	// 写扇区
 	FLASH->CR |= FLASH_CR_PG;
 	for (i = 0; i <= size / 2; ++i) {
-		*(unsigned short*)secpos = *((unsigned short*)buf + i);
+		*(u16*)secpos = *((u16*)buf + i);
 		secpos += 2;
 		while ((FLASH->SR & FLASH_SR_BSY) != RESET);
 	}
@@ -126,8 +170,8 @@ void SystemInit() {
 }
 
 
-void delay(unsigned short ms) {
-	unsigned int temp;
+void delay_ms(u16 ms) {
+	u32 temp;
 	SysTick->LOAD = 9000 * ms;
 	SysTick->VAL = 0;
 	SysTick->CTRL |= SysTick_CTRL_ENABLE;
@@ -138,37 +182,73 @@ void delay(unsigned short ms) {
 }
 
 
-void TIM3_IRQHandler() {
-	uint8_t i;
-	if (TIM3->SR & TIM_SR_UIF) {
-		for (i = 0; i != 2; ++i){
-			GPIOA->BSRR |= 1 << 6;
-			delay(80);
-			GPIOA->BSRR |= 1 << 22;
-			delay(80);
+void TIM2_IRQHandler() {
+	if (TIM2->SR & TIM_SR_UIF) {
+		switch (NET_STATUS) {
+			case WIFI_NoInit: {
+				led_double(1000);
+				break;
+			}
+			case WIFI_Connecting: {
+				led_double(10);
+				break;
+			}
 		}
+		TIM2->SR &= ~TIM_SR_UIF;
+	}
+}
+
+
+void TIM3_IRQHandler() {
+	if (TIM3->SR & TIM_SR_UIF) {
+		IWDG->KR = 0xAAAA;
+		force_update_status(-1);
 		TIM3->SR &= ~TIM_SR_UIF;
 	}
 }
 
 
 void TIM4_IRQHandler() {
-	
+	u8 op_code;
+	char buf[PACKAGE_DATA_SIZE];
 	if (TIM4->SR & TIM_SR_UIF) {
-		if (ESP8266_READY == WIFI_Connected) {
-			
-		}
 		TIM4->SR &= ~TIM_SR_UIF;
+		if (NET_STATUS != WIFI_Connected) {
+			return;
+		}
+		memset(buf, 0, PACKAGE_DATA_SIZE);
+		// 查看有没挂起的按键IO状态需要将当前状态同步到服务器
+		if (wait_sync == 1) {
+			build_setstatus_package(buf, (u8)io_status, PACKAGE_DATA_SIZE);
+		} else {
+			build_getstatus_package(buf, PACKAGE_DATA_SIZE);
+		}
+		send_message(buf, PACKAGE_DATA_SIZE);
+		if (strlen(buf) >= PACKAGE_DATA_SIZE) {
+			return;
+		}
+		if (strstr(buf, "+IPD")) {
+			op_code = process_message(buf);
+			if (op_code == 1) {
+				u1_printf("get io_status ok\r\n");
+			} else if (op_code == 2) {
+				u1_printf("set io_status ok\r\n");
+				wait_sync = 0;
+				force_update_status(-1);
+			}
+		} else {
+			u1_printf("error:\r\n\033[35m%s\033[0m\r\n", buf);
+		}
 	}
 }
 
 
 void USART1_IRQHandler() {
 	static char recv_buf_data[UART_BUF_SIZE];
-	static unsigned char index = 0;
+	static u8 index;
 	char c;
 	if (USART1->SR & USART_SR_RXNE) {
-		c = (unsigned char)USART1->DR;
+		c = (u8)USART1->DR;
 		if (c != '\r') {
 			if (c == '\b') {
 				if (index != 0) {
@@ -206,27 +286,41 @@ void USART2_IRQHandler() {
 
 
 void EXTI9_5_IRQHandler() {
-	uint8_t i;
-	delay(5);
+	u8 i;
+	delay_ms(5);
 	for (i = 8; i <= 9; ++i) {
-		if ((GPIOB->IDR & (0x1 << i)) == RESET) {
-			GPIOB->ODR ^= 1 << (i - 8);
+		if ((GPIOB->IDR & (0x1 << i)) != RESET) {
+			continue;
+		}
+		if (wait_sync == 0) {
+			io_status ^= 1 << (i - 8);
+			force_update_status(io_status);
 			u1_printf("GPIOB[%02d]Trigger\r\n", i);
+		} else {
+			u1_printf("GPIOB[%02d]Suspend\r\n", i);
 		}
 		EXTI->PR |= 1 << i;
+		break;
 	}
 }
 
 
 void EXTI15_10_IRQHandler() {
-	uint8_t i;
-	delay(5);
+	u8 i;
+	delay_ms(5);
 	for (i = 10; i <= 15; ++i) {
-		if ((GPIOB->IDR & (0x1 << i)) == RESET) {
-			GPIOB->ODR ^= 1 << (i - 8);
+		if ((GPIOB->IDR & (0x1 << i)) != RESET) {
+			continue;
+		}
+		if (wait_sync == 0) {
+			io_status ^= 1 << (i - 8);
+			force_update_status(io_status);
 			u1_printf("GPIOB[%02d]Trigger\r\n", i);
+		} else {
+			u1_printf("GPIOB[%02d]Suspend\r\n", i);
 		}
 		EXTI->PR |= 1 << i;
+		break;
 	}
 }
 
@@ -256,31 +350,47 @@ void exti_init() {
 	NVIC->ISER[EXTI9_5_IRQn / 32] |= 1 << (EXTI9_5_IRQn % 32);
 	NVIC_SetPriority(EXTI15_10_IRQn, 0x8);
 	NVIC->ISER[EXTI15_10_IRQn / 32] |= 1 << (EXTI15_10_IRQn % 32);
+	
+	// 打开软件触发中断模式
+	SCB->CCR |= SCB_CCR_USERSETMPEND;
 }
 
 
-void tim3_init(unsigned short arr, unsigned short psc) {
+void tim2_init(u16 arr, u16 psc) {
+	RCC->APB1ENR |= RCC_APB1ENR_TIM2EN;
+	TIM2->ARR = arr;
+	TIM2->PSC = psc;
+	TIM2->DIER = TIM_DIER_UIE;
+	// 设置定时器中断
+	NVIC->ISER[TIM2_IRQn / 32] |= 1 << (TIM2_IRQn % 32);
+	// 抢占优先级最低b1111
+	NVIC_SetPriority(TIM2_IRQn, 0xF);
+	TIM2->CR1 = TIM_CR1_CEN;
+}
+
+
+void tim3_init(u16 arr, u16 psc) {
 	RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
 	TIM3->ARR = arr;
 	TIM3->PSC = psc;
 	TIM3->DIER = TIM_DIER_UIE;
 	// 设置定时器中断
 	NVIC->ISER[TIM3_IRQn / 32] |= 1 << (TIM3_IRQn % 32);
-	// 抢占优先级最低1100
-	NVIC_SetPriority(TIM3_IRQn, 0xC);
+	// 抢占优先级中b1000
+	NVIC_SetPriority(TIM3_IRQn, 0x8);
 	TIM3->CR1 = TIM_CR1_CEN;
 }
 
 
-void tim4_init(unsigned short arr, unsigned short psc) {
+void tim4_init(u16 arr, u16 psc) {
 	RCC->APB1ENR |= RCC_APB1ENR_TIM4EN;
 	TIM4->ARR = arr;
 	TIM4->PSC = psc;
 	TIM4->DIER = TIM_DIER_UIE;
 	// 设置定时器中断
 	NVIC->ISER[TIM4_IRQn / 32] |= 1 << (TIM4_IRQn % 32);
-	// 抢占优先级最低1100
-	NVIC_SetPriority(TIM4_IRQn, 0xC);
+	// 抢占优先级中b1001
+	NVIC_SetPriority(TIM4_IRQn, 0x9);
 	TIM4->CR1 = TIM_CR1_CEN;
 }
 
@@ -290,6 +400,7 @@ void led_init() {
 	GPIOA->CRL &= ~(0xF << 24);
 	GPIOA->CRL |= 2 << 24;
 	
+	// 取消JLINK的部分端口调试复用
 	AFIO->MAPR &= ~AFIO_MAPR_SWJ_CFG;
 	AFIO->MAPR |= AFIO_MAPR_SWJ_CFG_JTAGDISABLE;
 	
@@ -310,11 +421,11 @@ void u1_init() {
 	USART1->BRR = (39 << 4) | (int)(0.0625 * 16);
 	// 设置串口收数据中断
 	NVIC->ISER[USART1_IRQn / 32] |= 1 << (USART1_IRQn % 32);
-	// 抢占优先级中1001(低于按键)
+	// 抢占优先级中1001(低于按键和喂狗)
 	NVIC_SetPriority(USART1_IRQn, 0x9);
 	USART1->CR1 = USART_CR1_RE | USART_CR1_TE | USART_CR1_RXNEIE | USART_CR1_PEIE;
 	USART1->CR3 |= USART_CR3_DMAT;
-	uart_dma_config(DMA1_Channel4, (unsigned int)&USART1->DR, (unsigned int)&USART1_TX_BUF, 1);
+	uart_dma_config(DMA1_Channel4, (u32)&USART1->DR, (u32)&USART1_TX_BUF, 1);
 	USART1->CR1 |= USART_CR1_UE;
 }
 
@@ -331,24 +442,24 @@ void u2_init() {
 	NVIC_SetPriority(USART1_IRQn, 0x4);
 	USART2->CR1 = USART_CR1_RE | USART_CR1_TE | USART_CR1_RXNEIE;
 	USART2->CR3 |= USART_CR3_DMAT;
-	uart_dma_config(DMA1_Channel7, (unsigned int)&USART2->DR, (unsigned int)&USART2_TX_BUF, 3);
+	uart_dma_config(DMA1_Channel7, (u32)&USART2->DR, (u32)&USART2_TX_BUF, 3);
 	USART2_RX_COUNT = 0;
 	USART2->CR1 |= USART_CR1_UE;
 }
 
 
-unsigned char esp8266_cmd(const char* cmd, const char* ack, unsigned short waittime, char* output) {
-	delay(20);
+u8 esp8266_cmd(const char* cmd, const char* ack, u16 waittime, const char** output) {
 	USART2_RX_COUNT = 0;
 	u2_printf("%s\r\n", cmd);
 	if (ack && waittime) {
 		while (--waittime) {
-			delay(1);
+			delay_ms(1);
 		}
 	}
 	USART2_RX_BUF[USART2_RX_COUNT] = 0;
+	USART2_RX_COUNT = 0;
 	if (output) {
-		strncpy(output, (const char*)USART2_RX_BUF, strlen((const char*)USART2_RX_BUF));
+		*output = (char*)&USART2_RX_BUF;
 	}
 	if (ack && strstr((const char*)USART2_RX_BUF, ack)) {
 		return 1;
@@ -358,49 +469,56 @@ unsigned char esp8266_cmd(const char* cmd, const char* ack, unsigned short waitt
 
 
 void esp8266_init(void) {
-	char buf[128];
-	if (ESP8266_READY == WIFI_Connecting || ESP8266_READY == WIFI_Connected) {
+	char temp[64];
+	u8 times;
+	const char* output;
+	if (NET_STATUS == WIFI_Connecting || NET_STATUS == WIFI_Connected) {
 		return;
 	}
-	GPIOA->BSRR |= 1 << 22;
-	ESP8266_READY = WIFI_Connecting;
-	u1_printf("设置esp8266为STA模式\r\n");
-	esp8266_cmd("AT+CIPMODE=0", "OK", 200, NULL);
-	if (esp8266_cmd("AT+CWMODE=1", "OK", 200, NULL) != 1) {
-		ESP8266_READY = WIFI_NoConnected;
-		return;
-	}
+	u1_printf("设置esp8266为STA模式\r\n", NET_STATUS);
+	NET_STATUS = WIFI_Connecting;
+	esp8266_cmd("AT+CWMODE=1", "OK", 200, NULL);
 	//u1_printf("复位esp8266\r\n");
-	//esp8266_cmd("AT+RST", "version", 2000, NULL);
-	//delay(1000);
-	u1_printf("开始连接无线网络[%s]\r\n", iot_data->wifi_name);
-	sprintf(buf, "AT+CWJAP=\"%s\",\"%s\"", iot_data->wifi_name, iot_data->wifi_password);
-	if (esp8266_cmd(buf, "OK", 5000, NULL) != 1) {
-		ESP8266_READY = WIFI_NoConnected;
-		return;
-	}
-	u1_printf("设置esp8266非透传模式\r\n");	
-	esp8266_cmd("AT+CIPMODE=0", "OK", 200, NULL);
-	u1_printf("设置esp8266单播模式\r\n");
-	esp8266_cmd("AT+CIPMUX=0", "OK", 200, NULL);
-	u1_printf("查询esp8266网络信息\r\n");
-	if (esp8266_cmd("AT+CIFSR", "OK", 200, buf) != 1) {
-		ESP8266_READY = WIFI_NoConnected;
-		return;
-	}
-	u1_printf("%s\r\n", buf);
-	ESP8266_READY = WIFI_Connected;
-	u1_printf("Done\r\n");
+	//esp8266_cmd("AT+RST", NULL, 10000, NULL);
+	times = 1;
+	do {
+		u1_printf("开始第%u次连接无线网络[%s]\r\n", times, iot_data->wifi_name);
+		snprintf(temp, 64, "AT+CWJAP=\"%s\",\"%s\"", iot_data->wifi_name, iot_data->wifi_password);
+		if (esp8266_cmd(temp, "OK", 5000, NULL) != 1) {
+			if (times++ > MAX_CONNECT_TIMES) {
+				u1_printf("网络初始化失败,请手动检查网络情况\r\n");
+				return;
+			}
+			continue;
+		}
+		u1_printf("设置esp8266非透传模式\r\n");	
+		if (esp8266_cmd("AT+CIPMODE=0", "OK", 200, NULL) != 1) {
+			continue;
+		}
+		u1_printf("设置esp8266单播模式\r\n");
+		if (esp8266_cmd("AT+CIPMUX=0", "OK", 200, NULL) != 1) {
+			continue;
+		}
+		u1_printf("查询esp8266网络信息\r\n");
+		if (esp8266_cmd("AT+CIFSR", "OK", 200, &output) != 1) {
+			continue;
+		}
+		u1_printf("%s\r\n", output);
+		break;
+	} while (1);
+	NET_STATUS = WIFI_Connected;
+	u1_printf("\r\n\033[36;1mDone\033[0m\r\n");
 }
 
 
-void request_status_package(char* output) {
+void build_getstatus_package(char* buf, u16 buf_size) {
 	char signature_data[SIGNATURE_BUF_SIZE];
 	char token_data[MD5_HASHSIZE * 2 + 1];
-	unsigned int timestamp;
+	static u32 timestamp;
 
-	timestamp = 123456;
-	sprintf(signature_data, "iot#1#%s#%u#%u#%s",
+	//timestamp = 123456;
+	snprintf(signature_data, SIGNATURE_BUF_SIZE,
+		"iot#1#%s#%u#%u#%s",
 		iot_data->machineid,
 		iot_data->customerid,
 		timestamp,
@@ -408,59 +526,118 @@ void request_status_package(char* output) {
 	);
 	memset(token_data, 0, sizeof(token_data));
 	md5_hexdigest(signature_data, strlen(signature_data), token_data);
-	sprintf(output, "data=iot#1#%s#%u#%u#%s#eof",
+	snprintf(buf, buf_size,
+		"data=iot#1#%s#%u#%u#%s#eof",
 		iot_data->machineid,
 		iot_data->customerid,
 		timestamp,
 		token_data
 	);
+	timestamp++;
 }
 
 
-void iot_update(char* output) {
-	char temp[128];
-	char data_package[PACKAGE_DATA_SIZE];
-	char post_data[SEND_BUF_SIZE];
-	unsigned short len;
-	
-	if (ESP8266_READY == WIFI_NoConnected || ESP8266_READY == WIFI_Connecting) {
-		esp8266_init();
-		return;
-	}
-	if (ESP8266_READY == WIFI_Connecting) {
-		return;
-	}
-	if (ESP8266_READY != WIFI_Connected) {
-		return;
-	}
+void build_setstatus_package(char* buf, u8 new_status, u16 buf_size) {
+	char signature_data[SIGNATURE_BUF_SIZE];
+	char token_data[MD5_HASHSIZE * 2 + 1];
+	static u32 timestamp;
 
-	memset(data_package, 0, PACKAGE_DATA_SIZE);
-	request_status_package(data_package);
-	sprintf(post_data, "POST / HTTP/1.1\r\n"
+	//timestamp = 123456;
+	snprintf(signature_data, SIGNATURE_BUF_SIZE,
+		"iot#2#%s#%u#%u#%u#%s",
+		iot_data->machineid,
+		iot_data->customerid,
+		timestamp,
+		new_status,
+		iot_data->secret_key
+	);
+	memset(token_data, 0, sizeof(token_data));
+	md5_hexdigest(signature_data, strlen(signature_data), token_data);
+	snprintf(buf, buf_size,
+		"data=iot#2#%s#%u#%u#%u#%s#eof",
+		iot_data->machineid,
+		iot_data->customerid,
+		timestamp,
+		new_status,
+		token_data
+	);
+	timestamp++;
+}
+
+
+void send_message(char* databuf, u16 databuf_size) {
+	char temp[64];
+	char post_data[SEND_BUF_SIZE];
+	u16 len;
+	const char* result;
+	if (NET_STATUS != WIFI_Connected) {
+		return;
+	}
+	snprintf(post_data, SEND_BUF_SIZE,
+		"POST / HTTP/1.1\r\n"
 		"Content-Type: application/x-www-form-urlencoded\r\n"
 		"User-Agent: iot_esp8266_module\r\n"
 		"Content-Length:%d\r\n"
-		"\r\n%s", strlen(data_package), data_package);
+		"\r\n%s", strlen(databuf), databuf);
 
-	len = strlen(post_data);
-	if (len > SEND_BUF_SIZE) {
-		return;
-	}
-	sprintf(temp, "AT+CIPSTART=\"TCP\",\"%s\",%d", iot_data->server_ip, iot_data->server_port);
+	snprintf(temp, 64, "AT+CIPSTART=\"TCP\",\"%s\",%d", iot_data->server_ip, iot_data->server_port);
 	if (esp8266_cmd(temp, "CONNECT", 1000, NULL) == 1) {
-		GPIOA->BSRR |= 1 << 6;
 		u1_printf("连接服务器[%s:%u]成功 \r\n", iot_data->server_ip, iot_data->server_port);
 	}
 
-	sprintf(temp, "AT+CIPSEND=%d", len);
+	len = strlen(post_data);
+	snprintf(temp, 64, "AT+CIPSEND=%d", len);
 	esp8266_cmd(temp, "OK", 200, NULL);
-	
-	esp8266_cmd(post_data, "iot", 1000, output);
-	delay(200);
-	//u1_printf("recv:%s\r\n", output);
-	if (esp8266_cmd("AT+CIPCLOSE", "OK", 200, NULL) == 1) {
-		delay(50);
-		GPIOA->BSRR |= 1 << 22;
-		u1_printf("通信结束,断开与服务器的连接 \r\n");
+
+	u1_printf("\033[0msendto >>>>>>\r\n\033[32m%s\033[0m \r\n", post_data);
+	esp8266_cmd(post_data, "iot", 1000, &result);
+	len = strlen(result);
+
+	if (len < databuf_size - 1) {
+		u1_printf("recvfrom <<<<<<\r\n\033[34m%s\033[0m \r\n", result);
+		strncpy(databuf, result, len);
 	}
+	if (esp8266_cmd("AT+CIPCLOSE", "OK", 200, NULL) == 1) {
+		u1_printf("\r\n\033[0m通信结束,断开与服务器的连接 \r\n");
+	}
+}
+
+
+u8 check_init(void) {
+	u8 isok;
+	isok = 1;
+	NET_STATUS = WIFI_NoInit;
+	if ((u8)iot_data->model[0] == 0xFF) {
+		u1_printf("need setmodel\r\n");
+		isok = 0;
+	}
+	if ((u8)iot_data->wifi_name[0] == 0xFF) {
+		u1_printf("need setwifiname\r\n");
+		isok = 0;
+	}
+	if ((u8)iot_data->wifi_password[0] == 0xFF) {
+		u1_printf("need setwifipwd\r\n");
+		isok = 0;
+	}
+	if ((u8)iot_data->server_ip[0] == 0xFF) {
+		u1_printf("need setserverip\r\n");
+		isok = 0;
+	}
+	if ((u8)iot_data->secret_key[0] == 0xFF) {
+		u1_printf("need setkey\r\n");
+		isok = 0;
+	}
+	if ((u8)iot_data->machineid[0] == 0xFF) {
+		u1_printf("need setmid\r\n");
+		isok = 0;
+	}
+	if (iot_data->customerid == 0xFFFFFFFF) {
+		u1_printf("need setcid\r\n");
+		isok = 0;
+	}
+	if (iot_data->server_port == 0xFFFF) {
+		u1_printf("need setserverport\r\n");
+		isok = 0;
+	}
+	return isok;
 }
