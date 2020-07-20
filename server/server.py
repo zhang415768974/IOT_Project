@@ -22,6 +22,7 @@ globalcontext = {}
 globalcache = {}
 
 logdirname = "temp"
+MAX_PAGE_SIZE = 100
 
 _1 = '''
     iot#1 : tick-req
@@ -64,9 +65,78 @@ class NoAccessLoggingFilter(logging.Filter):
         return not record.getMessage()[:3] in ["200", "304", "404", "405"]
 
 
+class BaseHandler(tornado.web.RequestHandler):
+    def set_default_headers(self):
+        self.set_header('Access-Control-Allow-Origin', '*')
+        self.set_header('Access-Control-Allow-Methods', 'POST, OPTIONS')
+
+
+class WebHandler(BaseHandler):
+    @gen.coroutine
+    def _get_onlinedevice(self, index):
+        result = []
+        for v in sorted(globalcache.values(), key=lambda _: _["customerid"], reverse=True)[index * MAX_PAGE_SIZE : (index + 1) * MAX_PAGE_SIZE]:
+            result.append({"id": v["mid"], "cid": v["customerid"], "io_status": v["io_status"], "username": v["username"]})
+        raise gen.Return(result)
+
+
+    @gen.coroutine
+    def _set_device_status(self, machineid, customerid, io_index, value):
+        if machineid not in globalcache:
+            raise gen.Return({"code": -1, "result": "device not online"})
+        if io_index < 0 or io_index > 8:
+            raise gen.Return({"code" :-2, "result": "io_index error"})
+        if value not in (0, 1):
+            raise gen.Return({"code": -2, "result": "value error"})
+
+        if value:
+            globalcache[machineid]["io_status"] |= 1 << (io_index - 1)
+        else:
+            globalcache[machineid]["io_status"] &= ~(1 << (io_index - 1))
+
+        mysqlconn = globalcontext["mysql"]
+        mysqlconn.ping()
+        cursor = mysqlconn.cursor(cursor=pymysql.cursors.DictCursor)
+        rowcount = cursor.execute("update tb_device set io_status = %(io_status)s where machineid = %(machineid)s and customerid = %(customerid)s",
+         {"io_status": globalcache[machineid]["io_status"], "machineid": machineid, "customerid": customerid})
+        if rowcount > 0:
+            mysqlconn.commit()
+        cursor.close()
+        mysqlconn.close()
+        logging.info("%s - %s set io_status %d" % (globalcache[machineid]["username"], machineid, globalcache[machineid]["io_status"]))
+        raise gen.Return({"code": 0, "result": "ok"})
+
+
+    @gen.coroutine
+    def do_request(self):
+        cmd = self.get_body_argument("cmd", "")
+        response = {}
+        if cmd == "get_onlinedevice":
+            index = int(self.get_body_argument("index", 0))
+            response = yield self._get_onlinedevice(index)
+        elif cmd == "set_iostatus":
+            machineid = self.get_body_argument("machineid", "")
+            customerid = int(self.get_body_argument("customerid", 0))
+            io_index = int(self.get_body_argument("io_index", 0))
+            io_value = int(self.get_body_argument("io_value", 0))
+            response = yield self._set_device_status(machineid, customerid, io_index, io_value)
+        self.write(tornado.escape.json_encode(response))
+        self.finish()
+
+
+    @gen.coroutine
+    def post(self):
+        yield self.do_request()
+
+
+    @gen.coroutine
+    def options(self):
+        self.set_status(204)
+        self.finish()
+
+
 class MainHandler(tornado.web.RequestHandler):
     def oauth(self, post_data):
-        data_len = len(post_data)
         if not (post_data[:3] == "iot" and post_data[-3:] == "eof"):
             return False
         signature_str = "%s%s" % (post_data[:-36], globalconfig["server"]["secret_key"])
@@ -107,6 +177,7 @@ class MainHandler(tornado.web.RequestHandler):
                         result_code = OpCodeEnum.expire
                         logging.warning("%s - %s expire" % (result["username"], machineid))
                     else:
+                        result["mid"] = machineid
                         globalcache[machineid] = result
                         logging.info("%s - %s online" % (result["username"], machineid))
             cursor.close()
@@ -220,7 +291,7 @@ def sig_handler(sig,frame):
 if __name__ == "__main__":
     start_stats()
     config = configparser.ConfigParser()
-    config.read('test.ini')
+    config.read('server.ini')
     for k, v in config.items():
         globalconfig[k] = {}
         for m, n in v.items():
@@ -242,6 +313,7 @@ if __name__ == "__main__":
 
     application = tornado.web.Application([
         (r"/", MainHandler),
+        (r"/restserver/handler", WebHandler)
     ])
 
     server = globalconfig["server"]
