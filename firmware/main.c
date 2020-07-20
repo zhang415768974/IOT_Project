@@ -10,14 +10,15 @@ int main()
 {
 	/*设置优先级分组，2抢占，2响应*/
 	NVIC_SetPriorityGrouping(2);
-	iwdg_init();
+	//iwdg_init();
 	// 定时器1秒一次看门狗喂狗,5秒不喂自动复位MCU
-	tim3_init(9999, 7199);
+	//tim3_init(9999, 7199);
 	// 定时器100毫秒的指示灯状态刷新
 	tim2_init(999, 7199);
 	exti_init();
 	led_init();
 	u1_init();
+	init_rtc(999);
 	if (check_init() == RESET) {
 		while (1);
 	}

@@ -111,6 +111,31 @@ void iwdg_init(void) {
 }
 
 
+void init_rtc(u32 timestamp) {
+	RCC->APB1ENR |= RCC_APB1ENR_PWREN;
+	PWR->CR |= PWR_CR_DBP;
+	RCC->BDCR |= RCC_BDCR_BDRST;
+	RCC->BDCR &= ~RCC_BDCR_BDRST;
+	
+	RCC->BDCR |= RCC_BDCR_LSEON;
+	while ((RCC->BDCR & RCC_BDCR_LSERDY) == RESET);
+	
+	RCC->BDCR |= RCC_BDCR_RTCSEL_LSE;
+	RCC->BDCR |= RCC_BDCR_RTCEN;
+	while ((RTC->CRL & RTC_CRL_RTOFF) == RESET);
+	while ((RTC->CRL & RTC_CRL_RSF) == RESET);
+	
+	RTC->CRL |= RTC_CRL_CNF;
+	RTC->PRLH = 0;
+	RTC->PRLL = 32767;
+	RTC->CNTL = timestamp & 0xFFFF;
+	RTC->CNTH = timestamp >> 16;
+	RTC->CRL &= ~RTC_CRL_CNF;
+	while ((RTC->CRL & RTC_CRL_RTOFF) == RESET);
+	u1_printf("timestamp init %u\r\n", timestamp);
+}
+
+
 void flash_write(u32 addr, const char* buf, u16 size) {
 	u32 secpos;
 	u16 i;
@@ -514,9 +539,9 @@ void esp8266_init(void) {
 void build_getstatus_package(char* buf, u16 buf_size) {
 	char signature_data[SIGNATURE_BUF_SIZE];
 	char token_data[MD5_HASHSIZE * 2 + 1];
-	static u32 timestamp;
+	u32 timestamp;
 
-	//timestamp = 123456;
+	timestamp = (RTC->CNTL & 0xFFFF) | ((RTC->CNTH & 0xFFFF) << 16);
 	snprintf(signature_data, SIGNATURE_BUF_SIZE,
 		"iot#1#%s#%u#%u#%s",
 		iot_data->machineid,

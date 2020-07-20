@@ -170,6 +170,8 @@ void process_cmdline(const char* cmdline) {
 		set_customerid(strtoul(argv[1], NULL, 0));
 	} else if (strncmp(cmd, "setkey", MAX_PARAM_SIZE) == 0) {
 		set_secretkey(argv[1]);
+	} else if (strncmp(cmd, "settimestamp", MAX_PARAM_SIZE) == 0) {
+		init_rtc(atoi(argv[1]));
 	}
 }
 

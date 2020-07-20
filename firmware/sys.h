@@ -18,6 +18,7 @@ void tim2_init(u16 arr, u16 psc);
 void tim3_init(u16 arr, u16 psc);
 void tim4_init(u16 arr, u16 psc);
 void exti_init(void);
+void init_rtc(u32 timestamp);
 
 u8 check_init(void);
 
