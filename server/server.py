@@ -84,12 +84,13 @@ class WebHandler(BaseHandler):
     def _set_device_status(self, machineid, customerid, io_index, value):
         if machineid not in globalcache:
             raise gen.Return({"code": -1, "result": "device not online"})
-        if io_index < 0 or io_index > 8:
+        if io_index < 1 or io_index > 8:
             raise gen.Return({"code" :-2, "result": "io_index error"})
         if value not in (0, 1):
             raise gen.Return({"code": -2, "result": "value error"})
 
         if value:
+            print("@@@", io_index, 1 << (io_index - 1))
             globalcache[machineid]["io_status"] |= 1 << (io_index - 1)
         else:
             globalcache[machineid]["io_status"] &= ~(1 << (io_index - 1))

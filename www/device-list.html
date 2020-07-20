@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html class="x-admin-sm">
+    
+    <head>
+        <meta charset="UTF-8">
+        <title>欢迎页面-X-admin2.2</title>
+        <meta name="renderer" content="webkit">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+        <meta name="viewport" content="width=device-width,user-scalable=yes, minimum-scale=0.4, initial-scale=0.8,target-densitydpi=low-dpi" />
+        <link rel="stylesheet" href="./css/font.css">
+        <link rel="stylesheet" href="./css/xadmin.css">
+        <script src="./lib/layui/layui.js" charset="utf-8"></script>
+        <script type="text/javascript" src="./js/xadmin.js"></script>
+		<style>
+		.io_open { color:green; font-size:bolder;}
+		.io_close{ color:#cccccc;}
+		</style>
+    </head>
+    
+    <body>
+        <div class="x-nav">
+            <span class="layui-breadcrumb">
+                <a href="">首页</a>
+                <a href="">演示</a>
+                <a>
+                    <cite>导航元素</cite></a>
+            </span>
+            <a class="layui-btn layui-btn-small" style="line-height:1.6em;margin-top:3px;float:right" onclick="location.reload()" title="刷新">
+                <i class="layui-icon layui-icon-refresh" style="line-height:30px"></i>
+            </a>
+        </div>
+        <div class="layui-fluid">
+            <div class="layui-row layui-col-space15">
+                <div class="layui-col-md12">
+                    <div class="layui-card">
+                        <div class="layui-card-body ">
+                            <table class="layui-table layui-form">
+                                <thead>
+                                    <tr>
+                                        <th>机器码</th>
+                                        <th>客户名称</th>
+                                        <th>通道1状态</th>
+										<th>通道2状态</th>
+										<th>通道3状态</th>
+										<th>通道4状态</th>
+										<th>通道5状态</th>
+										<th>通道6状态</th>
+										<th>通道7状态</th>
+										<th>通道8状态</th>
+										</tr>
+                                </thead>
+                                <tbody id="content">
+                                </tbody>
+                            </table>
+                        </div>
+                        <!--<div class="layui-card-body ">
+                            <div class="page">
+                                <div>
+                                    <a class="prev" href="">&lt;&lt;</a>
+                                    <a class="num" href="">1</a>
+                                    <span class="current">2</span>
+                                    <a class="num" href="">3</a>
+                                    <a class="num" href="">489</a>
+                                    <a class="next" href="">&gt;&gt;</a></div>
+                            </div>
+                        </div>-->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </body>
+    <script>
+		function get_onlinedevice() {
+			$.post("http://127.0.0.1:8088/restserver/handler", {cmd: "get_onlinedevice", index:0},
+				function(data) {
+					data = JSON.parse(data.trim());
+					$("#content").empty();
+					for (var i = 0; i != data.length; ++i) {
+						var $tr = $("<tr></tr>");
+						$tr.append("<td>"+ data[i].id +"</td>");
+						$tr.append("<td>"+ data[i].username +"</td>");
+						for (var j = 0; j != 8; ++j) {
+							var v = (data[i].io_status >> j) & 0x1;
+							var status_str = (v ? "<label class='io_open'>开启中</label>" : "<label class='io_close'>已关闭</label>");
+							$tr.append("<td><a href=\"javascript:set_iostatus(\'" + data[i].id + "\'," + data[i].cid + "," + (j + 1) + "," + (v ? 0 : 1) + ")\">" + status_str +"</a></td>");
+						}
+						$tr.appendTo("#content");
+					}
+				}).fail(function() {
+					$("#content").empty();
+					var $tr = $("<tr></tr>");
+					$tr.append("<td colspan=10 style='color:red;text-align: center;'>连接服务器失败</td>");
+					$tr.appendTo("#content");
+			})
+		}
+		
+		function set_iostatus(mid, cid, index, value) {
+			layer.confirm("确认要["+ (value ? "打开" : "关闭") + "]设备["+mid+"]的通道["+ index +"]吗?", function() {
+				$.post("http://127.0.0.1:8088/restserver/handler", {cmd: "set_iostatus", machineid: mid, customerid: cid, io_index: index, io_value: value},
+				function(data) {
+					data = JSON.parse(data.trim());
+					if (data.code == 0) {
+						layer.msg('操作成功,指令正在发往设备对应端口!', {icon: 1,time: 3000});
+					}
+				}).fail(function() {
+					layer.msg('服务器繁忙,请稍后再试!', {icon: 2,time: 1000});
+				})
+			})
+		}
+		
+	setInterval(get_onlinedevice, 1000);
+	</script>
+
+</html>
