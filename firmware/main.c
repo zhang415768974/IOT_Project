@@ -1,15 +1,12 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stm32f10x.h>
-#include "sys.h"
-#include "cmd.h"
+#include "core.h"
 
 
 int main()
 {
-	/*设置优先级分组，2抢占，2响应*/
-	NVIC_SetPriorityGrouping(2);
+	iot_init();
+	iot_run();
+	
+	/*
 	//iwdg_init();
 	// 定时器1秒一次看门狗喂狗,5秒不喂自动复位MCU
 	//tim3_init(9999, 7199);
@@ -29,4 +26,5 @@ int main()
 	u1_printf("当前设备型号:%s,机器码:%s,客户id:%u\r\n", iot_data->model, iot_data->machineid, iot_data->customerid);
 	esp8266_init();
 	while (1);
+	*/
 }

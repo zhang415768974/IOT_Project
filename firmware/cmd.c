@@ -1,23 +1,25 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stm32f10x.h>
 
-#include "sys.h"
 #include "cmd.h"
+#include "core.h"
+#include "sys.h"
+#include "usart.h"
+#include "rtc.h"
+#include "stmflash.h"
 #include "md5.h"
+
 
 #define	MAX_PARAM_NUM 4
 #define	MAX_PARAM_SIZE 64
 #define	CMD_BUF_SIZE (MAX_PARAM_NUM * MAX_PARAM_SIZE)
-
 #define MAX_RESPONSE_SIZE 128
+#define SIGNATURE_BUF_SIZE 64
 
-u8 io_status;
-extern u8 wait_sync;
 
 static void reset_system() {
-	unsigned char count = 4;
+	u8 count = 4;
 	while (count--) {
 		u1_printf("\r\b系统将在\033[1;31m%d\033[0m秒后重启...", count);
 		delay_ms(1000);
@@ -31,16 +33,16 @@ static void set_gpio(char (*argv)[MAX_PARAM_SIZE]) {
 	if (idx < 0 || idx > 7) {
 		return;
 	}
-	if (wait_sync == 1) {
+	// 有状态等待同步,挂起io操作
+	if (g_wait_sync == 1) {
 		return;
 	}
-	
 	if (atoi(argv[2])) {
-		io_status |= 1 << idx;
+		g_io_status |= 1 << idx;
 	} else {
-		io_status &= ~(1 << idx);
+		g_io_status &= ~(1 << idx);
 	}
-	force_update_status(io_status);
+	force_update_status(g_io_status);
 }
 
 
@@ -66,20 +68,20 @@ static void set_model(const char* str) {
 }
 
 
-static void set_wifiname(const char* str) {
+static void set_ssid(const char* str) {
 	IOT_TypeDef iot;
 	memcpy(&iot, (const void*)USER_DATA_BASE, sizeof(iot));
-	memset(iot.wifi_name, 0, WIFI_NAME_MAX);
-	strncpy(iot.wifi_name, str, strlen(str));
+	memset(iot.ssid, 0, SSID_MAX);
+	strncpy(iot.ssid, str, strlen(str));
 	flash_write(USER_DATA_BASE, (char*)&iot, sizeof(iot));
 }
 
 
-static void set_wifipwd(const char* str) {
+static void set_password(const char* str) {
 	IOT_TypeDef iot;
 	memcpy(&iot, (const void*)USER_DATA_BASE, sizeof(iot));
-	memset(iot.wifi_password, 0, WIFI_PASSWORD_MAX);
-	strncpy(iot.wifi_password, str, strlen(str));
+	memset(iot.password, 0, PASSWORD_MAX);
+	strncpy(iot.password, str, strlen(str));
 	flash_write(USER_DATA_BASE, (char*)&iot, sizeof(iot));
 }
 
@@ -126,7 +128,7 @@ static void md5sum(const char* message) {
 }
 
 
-void process_cmdline(const char* cmdline) {
+void dispatch_cmdline(const char* cmdline) {
 	int i;
 	char buf[CMD_BUF_SIZE];
 	char argv[MAX_PARAM_NUM][MAX_PARAM_SIZE];
@@ -151,20 +153,20 @@ void process_cmdline(const char* cmdline) {
 		set_machineid(argv[1]);
 	} else if (strncmp(cmd, "atcmd", MAX_PARAM_SIZE) == 0) {
 		sprintf(buf, "%s", argv[1]);
-		esp8266_cmd(buf, "OK", 200, NULL);
+		//esp8266_cmd(buf, "OK", 200, NULL);
 	} else if (strncmp(cmd, "md5sum", MAX_PARAM_SIZE) == 0) {
 		md5sum(argv[1]);
 	} else if (strncmp(cmd, "sleep", MAX_PARAM_SIZE) == 0) {
 		delay_ms(atoi(argv[1]));
 	} else if (strcmp(cmd, "setmodel") == 0) {
 		set_model(argv[1]);
-	} else if (strncmp(cmd, "setwifiname", MAX_PARAM_SIZE) == 0) {
-		set_wifiname(argv[1]);
-	} else if (strncmp(cmd, "setwifipwd", MAX_PARAM_SIZE) == 0) {
-		set_wifipwd(argv[1]);
-	} else if (strncmp(cmd, "setserverip", MAX_PARAM_SIZE) == 0) {
+	} else if (strncmp(cmd, "setssid", MAX_PARAM_SIZE) == 0) {
+		set_ssid(argv[1]);
+	} else if (strncmp(cmd, "setpwd", MAX_PARAM_SIZE) == 0) {
+		set_password(argv[1]);
+	} else if (strncmp(cmd, "setip", MAX_PARAM_SIZE) == 0) {
 		set_serverip(argv[1]);
-	} else if (strncmp(cmd, "setserverport", MAX_PARAM_SIZE) == 0) {
+	} else if (strncmp(cmd, "setport", MAX_PARAM_SIZE) == 0) {
 		set_serverport(atoi(argv[1]));
 	} else if (strncmp(cmd, "setcid", MAX_PARAM_SIZE) == 0) {
 		set_customerid(strtoul(argv[1], NULL, 0));
@@ -201,7 +203,7 @@ u8 process_message(const char* message) {
 	char buf[MAX_RESPONSE_SIZE];
 	u16 len;
 	char *p, *out_ptr;
-	u8 iodata_server, op_code;
+	u8 server_data, op_code;
 	result = strstr(message, "res");
 	// 必须严格验证从服务器收到的数据完整性
 	if (oauth(result) == 0) {
@@ -220,9 +222,10 @@ u8 process_message(const char* message) {
 	p = strtok_r(NULL, "#", &out_ptr); // 返回码
 	op_code = atoi(p);
 	p = strtok_r(NULL, "#", &out_ptr); // io状态值
-	iodata_server = atoi(p);
-	if (wait_sync == 0 && iodata_server != io_status) {
-		io_status = iodata_server;
+	server_data = atoi(p);
+	if (g_wait_sync == 0 && server_data != g_io_status) {
+		g_io_status = server_data;
+		force_update_status(g_io_status);
 		u1_printf("io_status changed by server\r\n");
 	}
 	return op_code;

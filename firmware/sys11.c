@@ -14,18 +14,12 @@
 #define PACKAGE_DATA_SIZE 256
 #define MAX_CONNECT_TIMES 5
 
-#define FLASH_KEY1			0x45670123
-#define FLASH_KEY2			0xCDEF89AB	
 
-__align(4) static char USART1_TX_BUF[UART_BUF_SIZE];
-__align(4) static char USART2_TX_BUF[UART_BUF_SIZE];
-
-static u8 USART2_RX_BUF[UART_BUF_SIZE];
-static u16 USART2_RX_COUNT;
 static u8 NET_STATUS;
 u8 wait_sync;
 extern u8 io_status;
 
+/*
 static void uart_dma_config(DMA_Channel_TypeDef* DMA_CHx, u32 cpar, u32 cmar, u8 priority) {
 	RCC->AHBENR |= RCC_AHBENR_DMA1EN;
 	delay_ms(1);
@@ -48,7 +42,7 @@ static void uart_dma_enable(DMA_Channel_TypeDef* DMA_CHx, u16 len) {
 	DMA_CHx->CNDTR = len;
 	DMA_CHx->CCR |= DMA_CCR1_EN;
 }
-
+*/
 
 void force_update_status(short status) {
 	u8 i;
@@ -71,6 +65,7 @@ void force_update_status(short status) {
 }
 
 
+/*
 void led_double(u16 interval) {
 	u8 i;
 	for (i = 0; i != 2; ++i) {
@@ -87,9 +82,10 @@ void u1_printf(char* fmt, ...) {
 	va_start(ap, fmt);
 	vsnprintf(USART1_TX_BUF, UART_BUF_SIZE, fmt, ap);
 	va_end(ap);
-	uart_dma_enable(DMA1_Channel4, strlen((const char*)USART1_TX_BUF));
+	//uart_dma_enable(DMA1_Channel4, strlen((const char*)USART1_TX_BUF));
 	while (DMA1_Channel4->CNDTR != 0);
 }
+
 
 
 void u2_printf(char* fmt, ...) {
@@ -97,7 +93,7 @@ void u2_printf(char* fmt, ...) {
 	va_start(ap, fmt);
 	vsnprintf(USART2_TX_BUF, UART_BUF_SIZE, fmt, ap);
 	va_end(ap);
-	uart_dma_enable(DMA1_Channel7, strlen((const char*)USART2_TX_BUF));
+	//uart_dma_enable(DMA1_Channel7, strlen((const char*)USART2_TX_BUF));
 	while (DMA1_Channel7->CNDTR != 0);
 }
 
@@ -165,7 +161,6 @@ void flash_write(u32 addr, const char* buf, u16 size) {
 	FLASH->CR |= FLASH_CR_LOCK;
 }
 
-
 void SystemInit() {
 	// 外部高速时钟使能
 	RCC->CR |= RCC_CR_HSEON;
@@ -192,6 +187,9 @@ void SystemInit() {
 	
 	// 设置系统定时器使用外部时钟源
 	SysTick->CTRL &= ~SysTick_CTRL_CLKSOURCE;
+
+	//设置优先级分组，2抢占，2响应
+	NVIC_SetPriorityGrouping(2);
 }
 
 
@@ -301,13 +299,6 @@ void USART1_IRQHandler() {
 	}
 }
 
-
-void USART2_IRQHandler() {
-	if ((USART2->SR & USART_SR_RXNE) &&
-		USART2_RX_COUNT < UART_BUF_SIZE - 1) {
-		USART2_RX_BUF[USART2_RX_COUNT++] = USART2->DR & 0xFF;
-	}
-}
 
 
 void EXTI9_5_IRQHandler() {
@@ -434,7 +425,6 @@ void led_init() {
 	GPIOB->ODR |= 0xFF;
 }
 
-
 void u1_init() {
 	RCC->APB2ENR |= RCC_APB2ENR_IOPAEN | RCC_APB2ENR_USART1EN;
 	GPIOA->CRH &= ~(0xFF << 4);
@@ -450,7 +440,7 @@ void u1_init() {
 	NVIC_SetPriority(USART1_IRQn, 0x9);
 	USART1->CR1 = USART_CR1_RE | USART_CR1_TE | USART_CR1_RXNEIE | USART_CR1_PEIE;
 	USART1->CR3 |= USART_CR3_DMAT;
-	uart_dma_config(DMA1_Channel4, (u32)&USART1->DR, (u32)&USART1_TX_BUF, 1);
+	//uart_dma_config(DMA1_Channel4, (u32)&USART1->DR, (u32)&USART1_TX_BUF, 1);
 	USART1->CR1 |= USART_CR1_UE;
 }
 
@@ -471,7 +461,7 @@ void u2_init() {
 	USART2_RX_COUNT = 0;
 	USART2->CR1 |= USART_CR1_UE;
 }
-
+*/
 
 u8 esp8266_cmd(const char* cmd, const char* ack, u16 waittime, const char** output) {
 	USART2_RX_COUNT = 0;

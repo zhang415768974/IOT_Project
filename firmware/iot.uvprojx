@@ -339,7 +339,7 @@
               <MiscControls></MiscControls>
               <Define>STM32F10X_MD,DEBUG</Define>
               <Undefine></Undefine>
-              <IncludePath>.\include</IncludePath>
+              <IncludePath>.\include;.\HARDWARE</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -394,16 +394,6 @@
               <FilePath>.\startup_stm32f10x_md.s</FilePath>
             </File>
             <File>
-              <FileName>sys.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\sys.c</FilePath>
-            </File>
-            <File>
-              <FileName>sys.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>.\sys.h</FilePath>
-            </File>
-            <File>
               <FileName>cmd.h</FileName>
               <FileType>5</FileType>
               <FilePath>.\cmd.h</FilePath>
@@ -424,9 +414,99 @@
               <FilePath>.\md5.h</FilePath>
             </File>
             <File>
-              <FileName>typedef.h</FileName>
+              <FileName>core.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\core.c</FilePath>
+            </File>
+            <File>
+              <FileName>core.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\typedef.h</FilePath>
+              <FilePath>.\core.h</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>HARDWARE</GroupName>
+          <Files>
+            <File>
+              <FileName>usart.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\HARDWARE\usart.c</FilePath>
+            </File>
+            <File>
+              <FileName>usart.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\HARDWARE\usart.h</FilePath>
+            </File>
+            <File>
+              <FileName>dma.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\HARDWARE\dma.h</FilePath>
+            </File>
+            <File>
+              <FileName>dma.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\HARDWARE\dma.c</FilePath>
+            </File>
+            <File>
+              <FileName>timer.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\HARDWARE\timer.c</FilePath>
+            </File>
+            <File>
+              <FileName>timer.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\HARDWARE\timer.h</FilePath>
+            </File>
+            <File>
+              <FileName>exti.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\HARDWARE\exti.h</FilePath>
+            </File>
+            <File>
+              <FileName>exti.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\HARDWARE\exti.c</FilePath>
+            </File>
+            <File>
+              <FileName>stmflash.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\HARDWARE\stmflash.c</FilePath>
+            </File>
+            <File>
+              <FileName>stmflash.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\HARDWARE\stmflash.h</FilePath>
+            </File>
+            <File>
+              <FileName>rtc.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\HARDWARE\rtc.h</FilePath>
+            </File>
+            <File>
+              <FileName>sys.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\HARDWARE\sys.h</FilePath>
+            </File>
+            <File>
+              <FileName>sys.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\HARDWARE\sys.c</FilePath>
+            </File>
+            <File>
+              <FileName>rtc.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\HARDWARE\rtc.c</FilePath>
+            </File>
+            <File>
+              <FileName>esp8266.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\HARDWARE\esp8266.c</FilePath>
+            </File>
+            <File>
+              <FileName>esp8266.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\HARDWARE\esp8266.h</FilePath>
             </File>
           </Files>
         </Group>
