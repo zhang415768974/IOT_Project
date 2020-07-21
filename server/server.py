@@ -76,7 +76,14 @@ class WebHandler(BaseHandler):
     def _get_onlinedevice(self, index):
         result = []
         for v in sorted(globalcache.values(), key=lambda _: _["customerid"], reverse=True)[index * MAX_PAGE_SIZE : (index + 1) * MAX_PAGE_SIZE]:
-            result.append({"id": v["mid"], "cid": v["customerid"], "io_status": v["io_status"], "username": v["username"]})
+            result.append({
+                "id": v["mid"],
+                "cid": v["customerid"],
+                "io_status": v["io_status"],
+                "username": v["username"],
+                "starttime": v["starttime"].strftime("%Y-%m-%d %H:%M:%S"),
+                "endtime": v["endtime"].strftime("%Y-%m-%d %H:%M:%S")
+            })
         raise gen.Return(result)
 
 
@@ -160,7 +167,7 @@ class MainHandler(tornado.web.RequestHandler):
             mysqlconn = globalcontext["mysql"]
             mysqlconn.ping()
             cursor = mysqlconn.cursor(cursor=pymysql.cursors.DictCursor)
-            sql = '''select a.id, a.customerid, a.starttime, a.endtime, a.init_status, a.io_status, b.username, b.mobile from tb_device as a
+            sql = '''select a.id, a.customerid, a.starttime, a.endtime, a.io_status, b.username, b.mobile from tb_device as a
             left join tb_customer as b
             on a.customerid = b.id
             where a.machineid = %(machineid)s and a.customerid = %(customerid)s limit 1'''

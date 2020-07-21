@@ -39,6 +39,8 @@
                                     <tr>
                                         <th>机器码</th>
                                         <th>客户名称</th>
+										<th>开始时间</th>
+										<th>截止时间</th>
                                         <th>通道1状态</th>
 										<th>通道2状态</th>
 										<th>通道3状态</th>
@@ -79,6 +81,8 @@
 						var $tr = $("<tr></tr>");
 						$tr.append("<td>"+ data[i].id +"</td>");
 						$tr.append("<td>"+ data[i].username +"</td>");
+						$tr.append("<td>"+ data[i].starttime +"</td>");
+						$tr.append("<td>"+ data[i].endtime +"</td>");
 						for (var j = 0; j != 8; ++j) {
 							var v = (data[i].io_status >> j) & 0x1;
 							var status_str = (v ? "<label class='io_open'>开启中</label>" : "<label class='io_close'>已关闭</label>");
@@ -89,7 +93,7 @@
 				}).fail(function() {
 					$("#content").empty();
 					var $tr = $("<tr></tr>");
-					$tr.append("<td colspan=10 style='color:red;text-align: center;'>连接服务器失败</td>");
+					$tr.append("<td colspan=12 style='color:red;text-align: center;'>连接服务器失败</td>");
 					$tr.appendTo("#content");
 			})
 		}
