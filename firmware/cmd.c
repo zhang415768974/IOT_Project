@@ -8,6 +8,7 @@
 #include "usart.h"
 #include "rtc.h"
 #include "stmflash.h"
+#include "esp8266.h"
 #include "md5.h"
 
 
@@ -131,6 +132,7 @@ static void md5sum(const char* message) {
 void dispatch_cmdline(const char* cmdline) {
 	int i;
 	char buf[CMD_BUF_SIZE];
+	char result[256];
 	char argv[MAX_PARAM_NUM][MAX_PARAM_SIZE];
 	char *p, *out_ptr;
 	const char* cmd;
@@ -145,45 +147,64 @@ void dispatch_cmdline(const char* cmdline) {
 	}
 	cmd = argv[0];
 
-	if (strncmp(cmd, "reset", MAX_PARAM_SIZE) == 0) {
+	if (strcmp(cmd, "reset") == 0) {
 		reset_system();
-	} else if (strncmp(cmd, "gpio", MAX_PARAM_SIZE) == 0) {
+	} else if (strcmp(cmd, "gpio") == 0) {
 		set_gpio(argv);
-	} else if (strncmp(cmd, "setmid", MAX_PARAM_SIZE) == 0) {
+	} else if (strcmp(cmd, "setmid") == 0) {
 		set_machineid(argv[1]);
-	} else if (strncmp(cmd, "atcmd", MAX_PARAM_SIZE) == 0) {
+	} else if (strcmp(cmd, "atcmd") == 0) {
 		sprintf(buf, "%s", argv[1]);
-		//esp8266_cmd(buf, "OK", 200, NULL);
-	} else if (strncmp(cmd, "md5sum", MAX_PARAM_SIZE) == 0) {
+		memset(result, 0, 256);
+		esp8266_send_cmd(buf, "OK", 200, result, 256);
+		u1_printf("%s\r\n", result);
+	} else if (strcmp(cmd, "md5sum") == 0) {
 		md5sum(argv[1]);
-	} else if (strncmp(cmd, "sleep", MAX_PARAM_SIZE) == 0) {
+	} else if (strcmp(cmd, "sleep") == 0) {
 		delay_ms(atoi(argv[1]));
 	} else if (strcmp(cmd, "setmodel") == 0) {
 		set_model(argv[1]);
-	} else if (strncmp(cmd, "setssid", MAX_PARAM_SIZE) == 0) {
+	} else if (strcmp(cmd, "setssid") == 0) {
 		set_ssid(argv[1]);
-	} else if (strncmp(cmd, "setpwd", MAX_PARAM_SIZE) == 0) {
+	} else if (strcmp(cmd, "setpwd") == 0) {
 		set_password(argv[1]);
-	} else if (strncmp(cmd, "setip", MAX_PARAM_SIZE) == 0) {
+	} else if (strcmp(cmd, "setip") == 0) {
 		set_serverip(argv[1]);
-	} else if (strncmp(cmd, "setport", MAX_PARAM_SIZE) == 0) {
+	} else if (strcmp(cmd, "setport") == 0) {
 		set_serverport(atoi(argv[1]));
-	} else if (strncmp(cmd, "setcid", MAX_PARAM_SIZE) == 0) {
+	} else if (strcmp(cmd, "setcid") == 0) {
 		set_customerid(strtoul(argv[1], NULL, 0));
-	} else if (strncmp(cmd, "setkey", MAX_PARAM_SIZE) == 0) {
+	} else if (strcmp(cmd, "setkey") == 0) {
 		set_secretkey(argv[1]);
-	} else if (strncmp(cmd, "settimestamp", MAX_PARAM_SIZE) == 0) {
+	} else if (strcmp(cmd, "settimestamp") == 0) {
 		init_rtc(atoi(argv[1]));
+	} else if (strcmp(cmd, "stop") == 0) {
+		TIM2->CR1 &= ~TIM_CR1_CEN;
+	} else if (strcmp(cmd, "start") == 0) {
+		TIM2->CR1 |= TIM_CR1_CEN;
+	} else if (strcmp(cmd, "test") == 0) {
+		memset(result, 0, 256);
+		esp8266_send_cmd("AT+CIPSTART=\"TCP\",\"www.hhdz1234.com\",80", "OK", 200, result, 256);
+		u1_printf("%s\r\n", result);
+		memset(result, 0, 256);
+		esp8266_send_cmd("AT+CIPMODE=1", "OK", 200, result, 256);
+		u1_printf("%s\r\n", result);
+		esp8266_send_cmd("AT+CIPSEND", ">", 200, NULL, 0);
+		memset(result, 0, 256);
+		esp8266_send_cmd("GET http://www.hhdz1234.com/dh/ABC.asp\r\n", "+IPD", 200, result, 256);
+		u1_printf("%s\r\n", result);
+		esp8266_send_cmd("+++", NULL, 200, NULL, 0);
+		esp8266_send_cmd("AT+CIPCLOSE", NULL, 200, NULL, 0);
 	}
 }
 
 
 static unsigned char oauth(const char* data) {
-	u32 len, offset;
+	u16 len, offset;
 	char signature_src[SIGNATURE_BUF_SIZE];
 	char temp[MD5_HASHSIZE * 2 + 1];
 	len = strlen(data);
-	if (data && len > 32 && len < SIGNATURE_BUF_SIZE) {
+	if (data && len > 33 && len < SIGNATURE_BUF_SIZE) {
 		if (data[0] == 'r' && data[1] == 'e' && data[2] == 's') {
 			memset(signature_src, 0, SIGNATURE_BUF_SIZE);
 			offset = len - 32;
@@ -191,7 +212,7 @@ static unsigned char oauth(const char* data) {
 			strncat(signature_src, iot_data->secret_key, SIGNATURE_BUF_SIZE);
 			memset(temp, 0, sizeof(temp));
 			md5_hexdigest(signature_src, strlen(signature_src), temp);
-			return strncmp(&data[offset], temp, 256) == 0;
+			return strncmp(&data[offset], temp, 32) == 0;
 		}
 	}
 	return 0;

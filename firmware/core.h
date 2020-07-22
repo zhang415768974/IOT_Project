@@ -16,8 +16,15 @@ extern u8 g_net_status;	// 当前网络状态
 
 void iot_init(void);
 void iot_run(void);
+u8 check_init(void);
 
+u8 iot_connect_wifi(const char* ssid, const char* passwd);
 
 void force_update_status(short status);
+
+
+void build_getstatus_package(char* buf, u16 buf_size);
+void build_setstatus_package(char* buf, u8 new_status, u16 buf_size);
+u8 send_message(char* databuf, u16 databuf_size);
 
 #endif

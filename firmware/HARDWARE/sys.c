@@ -46,7 +46,7 @@ void SystemInit() {
 
 void iwdg_init(void) {
 	IWDG->KR = 0x5555;
-	IWDG->PR = 4;
+	IWDG->PR = 5; // 看门狗128分频
 	IWDG->RLR = 3125;
 	IWDG->KR = 0xAAAA;
 	IWDG->KR = 0xCCCC;

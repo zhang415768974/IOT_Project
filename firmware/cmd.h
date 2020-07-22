@@ -3,8 +3,8 @@
 
 #include <stm32f10x.h>
 
-//void process_cmdline(const char* cmdline);
-//u8 process_message(const char* message);
+void dispatch_cmdline(const char* cmdline);
+u8 process_message(const char* message);
 
 #define MODEl_MAX		20
 #define MACHINEID_MAX	12

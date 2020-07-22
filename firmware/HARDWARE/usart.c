@@ -6,6 +6,7 @@
 #include "usart.h"
 #include "dma.h"
 #include "timer.h"
+#include "../cmd.h"
 
 // 串口1发送缓冲区
 __align(8) u8 USART1_TX_BUF[USART_MAX_SEND_LEN];
@@ -65,7 +66,7 @@ void USART1_IRQHandler() {
 			}
 			index = 0;
 			u1_printf("\r\n");
-			//process_cmdline(recv_buf_data);
+			dispatch_cmdline((const char*)USART1_RX_BUF);
 			memset(USART1_RX_BUF, 0, USART_MAX_RECV_LEN);
 			u1_printf("=> ");
 		}
@@ -87,15 +88,15 @@ void u2_init(void) {
 	USART2->BRR = 19 << 4;
 	// 启用串口2中断
 	NVIC_EnableIRQ(USART2_IRQn);
-	// 配置中断优先级01|00
-	NVIC_SetPriority(USART1_IRQn, 0x4);
+	// 配置中断优先级10|00
+	NVIC_SetPriority(USART1_IRQn, 0x8);
 	// 配置收发数据使能、非空和PE中断
 	USART2->CR1 = USART_CR1_RE | USART_CR1_TE | USART_CR1_RXNEIE | USART_CR1_PEIE;
 	// 配置DMA写数据
 	USART2->CR3 |= USART_CR3_DMAT;
-	dma_config(DMA1_Channel7, (u32)&USART2->DR, (u32)&USART2_TX_BUF, 0x3);
-	// 配置定时器4控制收数据处理(100ms中断)
-	tim4_init(9999, 7199, 0); // 最高中断00|00
+	dma_config(DMA1_Channel7, (u32)&USART2->DR, (u32)&USART2_TX_BUF, 1);
+	// 配置定时器4控制收数据处理(10ms中断)
+	tim4_init(999, 7199, 0x4); // 高中断01|00
 	USART2_RX_STA = 0;
 	// 打开串口2
 	USART2->CR1 |= USART_CR1_UE;
@@ -129,8 +130,8 @@ void u1_printf(const char* fmt, ...) {
 	va_start(ap, fmt);
 	vsnprintf((char*)USART1_TX_BUF, USART_MAX_SEND_LEN, fmt, ap);
 	va_end(ap);
-	while (DMA1_Channel4->CNDTR != 0);
 	dma_enable(DMA1_Channel4, strlen((const char*)USART1_TX_BUF));
+	while (DMA1_Channel4->CNDTR != 0);
 }
 
 
@@ -139,8 +140,8 @@ void u2_printf(const char* fmt, ...) {
 	va_start(ap, fmt);
 	vsnprintf((char*)USART2_TX_BUF, USART_MAX_SEND_LEN, fmt, ap);
 	va_end(ap);
-	while (DMA1_Channel7->CNDTR != 0);	// 等待通道7传输完成
 	dma_enable(DMA1_Channel7, strlen((const char*)USART2_TX_BUF));	// 通过dma把数据发出去
+	while (DMA1_Channel7->CNDTR != 0); // 等待通道7传输完成
 }
 
 void TIM4_IRQHandler() {

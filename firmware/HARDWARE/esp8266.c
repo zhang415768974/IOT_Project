@@ -8,11 +8,7 @@
 
 
 void esp8266_init(void) {
-	char buf[512];
 	u2_init();
-	if (0 == esp8266_send_cmd("AT+RST", "version", 200, buf, 512)) {
-		u1_printf("%s", buf);
-	}
 }
 
 static u8* esp8266_check_cmd(const char *str) {
@@ -28,7 +24,12 @@ u8 esp8266_send_cmd(const char *cmd, const char *ack, u16 waittime, char* output
 	u8 result = 0;
 	u16 len;
 	USART2_RX_STA = 0;
-	u2_printf("%s\r\n", cmd);
+	if (strcmp(cmd, "+++") == 0) {
+		u2_printf("+++");	// 退出透传模式特殊处理
+		return 1;
+	} else {
+		u2_printf("%s\r\n", cmd);
+	}
 	if (ack && waittime) {
 		while (--waittime) {
 			delay_ms(10);
