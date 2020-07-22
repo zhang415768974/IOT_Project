@@ -1,5 +1,7 @@
 #include "exti.h"
 #include "sys.h"
+#include "usart.h"
+#include "../core.h"
 
 void exti_init(void) {
 	// GPIOB和辅助功能IO时钟使能
@@ -22,9 +24,9 @@ void exti_init(void) {
 	// 设置[8:15]下降沿触发
 	EXTI->FTSR |= 0xFF << 8;
 
-	// 抢占优先级中1000(高于串口1)
-	NVIC_SetPriority(EXTI9_5_IRQn, 0x8);
-	NVIC_SetPriority(EXTI15_10_IRQn, 0x8);
+	// 抢占优先级中00|00)
+	NVIC_SetPriority(EXTI9_5_IRQn, 0x0);
+	NVIC_SetPriority(EXTI15_10_IRQn, 0x0);
 	
 	NVIC_EnableIRQ(EXTI9_5_IRQn);
 	NVIC_EnableIRQ(EXTI15_10_IRQn);
@@ -41,15 +43,13 @@ void EXTI9_5_IRQHandler() {
 		if ((GPIOB->IDR & (0x1 << i)) != RESET) {
 			continue;
 		}
-		/*
-		if (wait_sync == 0) {
-			io_status ^= 1 << (i - 8);
-			force_update_status(io_status);
+		if (g_wait_sync == 0) {
+			g_io_status ^= 1 << (i - 8);
+			force_update_status(g_io_status);
 			u1_printf("GPIOB[%02d]Trigger\r\n", i);
 		} else {
 			u1_printf("GPIOB[%02d]Suspend\r\n", i);
 		}
-		*/
 		EXTI->PR |= 1 << i;
 		break;
 	}
@@ -63,15 +63,13 @@ void EXTI15_10_IRQHandler() {
 		if ((GPIOB->IDR & (0x1 << i)) != RESET) {
 			continue;
 		}
-		/*
-		if (wait_sync == 0) {
-			io_status ^= 1 << (i - 8);
-			force_update_status(io_status);
+		if (g_wait_sync == 0) {
+			g_io_status ^= 1 << (i - 8);
+			force_update_status(g_io_status);
 			u1_printf("GPIOB[%02d]Trigger\r\n", i);
 		} else {
 			u1_printf("GPIOB[%02d]Suspend\r\n", i);
 		}
-		*/
 		EXTI->PR |= 1 << i;
 		break;
 	}

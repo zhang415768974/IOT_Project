@@ -54,7 +54,7 @@ void iwdg_init(void) {
 
 
 void led_init(void) {
-	RCC->APB2ENR |= RCC_APB2ENR_IOPAEN | RCC_APB2ENR_IOPBEN;
+	RCC->APB2ENR |= RCC_APB2ENR_IOPAEN | RCC_APB2ENR_IOPBEN | RCC_APB2ENR_AFIOEN;
 	GPIOA->CRL &= ~(0xF << 24);
 	GPIOA->CRL |= 2 << 24;
 	
@@ -64,7 +64,7 @@ void led_init(void) {
 	
 	GPIOB->CRL &= ~0xFFFFFFFF;
 	GPIOB->CRL |= 0x22222222;
-	GPIOB->ODR |= 0xFF;
+	GPIOB->ODR &= ~0xFF;
 }
 
 

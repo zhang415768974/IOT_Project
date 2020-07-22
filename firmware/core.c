@@ -32,11 +32,11 @@ void iot_init() {
 	//tim3_init(999, 7199, 0xF);
 	// 串口1控制台初始化
 	u1_init();
-	u1_printf("\r\n\033[31;4m欢迎使用stm32f103c8t6华慧物联网IOT控制终端 Design By 猫咪也有理想\033[0m\r\n");
-	u1_printf("当前设备型号:%s,机器码:%s,客户id:%u\r\n", iot_data->model, iot_data->machineid, iot_data->customerid);
 	if (check_init() == 0) {
 		while (1);
 	}
+	u1_printf("\r\n\033[31;4m欢迎使用stm32f103c8t6华慧物联网IOT控制终端 Design By 猫咪也有理想\033[0m\r\n");
+	u1_printf("当前设备型号:%s,机器码:%s,客户id:%u\r\n", iot_data->model, iot_data->machineid, iot_data->customerid);
 	// 按键中断初始化
 	exti_init();
 	// RTC时钟初始化
@@ -132,6 +132,7 @@ u8 iot_connect_wifi(const char* ssid, const char* passwd) {
 			}
 			continue;
 		}
+		IWDG->KR = 0xAAAA;
 		u1_printf("设置esp8266为非透传模式 \r\n");
 		if (esp8266_send_cmd("AT+CIPMODE=0", "OK", 200, NULL, 0)) {
 			continue;
@@ -166,9 +167,9 @@ void force_update_status(short status) {
 	}
 	for (i = 0; i != 8; ++i) {
 		if ((g_io_status >> i) & 0x1) {
-			GPIOB->ODR &= ~(1 << i);
-		} else {
 			GPIOB->ODR |= 1 << i;
+		} else {
+			GPIOB->ODR &= ~(1 << i);
 		}
 	}
 }
