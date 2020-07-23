@@ -59,6 +59,7 @@ void USART1_IRQHandler() {
 				}
 			}
 		} else {
+			IWDG->KR = 0xAAAA; // 每个回车，强行喂狗
 			USART1_RX_BUF[index] = 0;
 			if (0 == index) {
 				u1_printf("\r\n=> ");

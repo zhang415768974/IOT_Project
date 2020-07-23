@@ -46,7 +46,7 @@ void EXTI9_5_IRQHandler() {
 		if (g_wait_sync == 0) {
 			g_io_status ^= 1 << (i - 8);
 			force_update_status(g_io_status);
-			u1_printf("GPIOB[%02d]Trigger\r\n", i);
+			u1_printf("GPIOB[%02d]Trigger,io_status:%u\r\n", i, g_io_status);
 		} else {
 			u1_printf("GPIOB[%02d]Suspend\r\n", i);
 		}
@@ -66,7 +66,7 @@ void EXTI15_10_IRQHandler() {
 		if (g_wait_sync == 0) {
 			g_io_status ^= 1 << (i - 8);
 			force_update_status(g_io_status);
-			u1_printf("GPIOB[%02d]Trigger\r\n", i);
+			u1_printf("GPIOB[%02d]Trigger,io_status:%u\r\n", i, g_io_status);
 		} else {
 			u1_printf("GPIOB[%02d]Suspend\r\n", i);
 		}
