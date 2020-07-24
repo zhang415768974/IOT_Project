@@ -81,8 +81,8 @@ class WebHandler(BaseHandler):
                 "cid": v["customerid"],
                 "io_status": v["io_status"],
                 "username": v["username"],
-                "starttime": v["starttime"].strftime("%Y-%m-%d %H:%M:%S"),
-                "endtime": v["endtime"].strftime("%Y-%m-%d %H:%M:%S")
+                "starttime": v["starttime"].strftime("%Y-%m-%d %H:%M:%S") if v["starttime"] else "-",
+                "endtime": v["endtime"].strftime("%Y-%m-%d %H:%M:%S") if v["endtime"] else "-"
             })
         raise gen.Return(result)
 
