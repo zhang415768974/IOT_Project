@@ -15,7 +15,6 @@ extern u8 g_io_status;	// 当前模块io_status值
 extern u8 g_net_status;	// 当前网络状态
 
 void iot_init(void);
-void iot_run(void);
 u8 check_init(void);
 
 u8 iot_connect_wifi(const char* ssid, const char* passwd);

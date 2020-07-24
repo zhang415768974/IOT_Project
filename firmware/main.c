@@ -4,5 +4,5 @@
 int main()
 {
 	iot_init();
-	iot_run();
+	while (1);
 }

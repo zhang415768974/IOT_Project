@@ -97,12 +97,12 @@ void u2_init(void) {
 	USART2->CR3 |= USART_CR3_DMAT;
 	dma_config(DMA1_Channel7, (u32)&USART2->DR, (u32)&USART2_TX_BUF, 1);
 	// 配置定时器4控制收数据处理(10ms中断)
-	tim4_init(999, 7199, 0x7); // 高中断01|11
-	USART2_RX_STA = 0;
+	tim4_init(999, 7199, 0x4); // 高中断01|00
 	// 打开串口2
 	USART2->CR1 |= USART_CR1_UE;
 	// 先关闭定时器4
 	TIM4->CR1 &= ~TIM_CR1_CEN;
+	USART2_RX_STA = 0;
 }
 
 

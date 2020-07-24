@@ -24,7 +24,7 @@ void exti_init(void) {
 	// 设置[8:15]下降沿触发
 	EXTI->FTSR |= 0xFF << 8;
 
-	// 抢占优先级中00|00)
+	// 抢占优先级最高00|00)
 	NVIC_SetPriority(EXTI9_5_IRQn, 0x0);
 	NVIC_SetPriority(EXTI15_10_IRQn, 0x0);
 	
@@ -38,7 +38,7 @@ void exti_init(void) {
 
 void EXTI9_5_IRQHandler() {
 	u8 i;
-	delay_ms(5);
+	//delay_ms(1);
 	for (i = 8; i <= 9; ++i) {
 		if ((GPIOB->IDR & (0x1 << i)) != RESET) {
 			continue;
@@ -58,7 +58,7 @@ void EXTI9_5_IRQHandler() {
 
 void EXTI15_10_IRQHandler() {
 	u8 i;
-	delay_ms(5);
+	//delay_ms(1);
 	for (i = 10; i <= 15; ++i) {
 		if ((GPIOB->IDR & (0x1 << i)) != RESET) {
 			continue;

@@ -8,13 +8,13 @@
 
 
 void esp8266_init(void) {
-	
 	GPIOA->CRL &= ~(0xF << 28);
 	GPIOA->CRL |= 0x2 << 28;
 	GPIOA->ODR &= ~(1 << 7);
-	delay_ms(500);
+	delay_ms(10);
 	GPIOA->ODR |= 1 << 7;
-	u2_init();
+	delay_ms(200);
+	//while (1);
 }
 
 static u8* esp8266_check_cmd(const char *str) {

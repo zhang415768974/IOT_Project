@@ -246,7 +246,7 @@ u8 process_message(const char* message) {
 	server_data = atoi(p);
 	if (g_wait_sync == 0 && server_data != g_io_status) {
 		g_io_status = server_data;
-		force_update_status(g_io_status);
+		force_update_status(-1);
 		u1_printf("io_status changed by server\r\n");
 	}
 	return op_code;

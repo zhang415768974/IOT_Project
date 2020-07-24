@@ -24,12 +24,8 @@ u8 g_net_status;
 
 
 void iot_init() {
-	// 初始化看门狗,10秒不喂自动复位MCU
-	iwdg_init();
 	// 指示灯初始化
 	led_init();
-	// 定时器100毫秒的指示灯状态刷新（优先级低11|11）
-	tim3_init(999, 7199, 0xF);
 	// 串口1控制台初始化
 	u1_init();
 	if (check_init() == 0) {
@@ -39,19 +35,20 @@ void iot_init() {
 	u1_printf("当前设备型号:%s,机器码:%s,客户id:%u\r\n", iot_data->model, iot_data->machineid, iot_data->customerid);
 	// 按键中断初始化
 	exti_init();
-	// RTC时钟初始化
-	init_rtc(0);
+	// 定时器100毫秒的指示灯状态刷新（优先级低11|11）
+	tim3_init(999, 7199, 0xF);
+	u2_init();
 	// esp8266初始化
 	esp8266_init();
+	// 初始化看门狗,10秒不喂自动复位MCU
+	iwdg_init();
 	// 连接wifi
+	g_net_status = WIFI_NoInit;
 	iot_connect_wifi(iot_data->ssid, iot_data->password);
-	// 定时器每隔3秒轮询服务器并更新IO状态数据(优先级最低11|00)
+	// RTC时钟初始化
+	init_rtc(0);
+	// 定时器每隔3秒轮询服务器并更新IO状态数据(优先级低11|00)
 	tim2_init(29999, 7199, 0xC);
-}
-
-
-void iot_run(void) {
-	while (1);
 }
 
 
@@ -67,7 +64,7 @@ void TIM3_IRQHandler() {
 				break;
 			}
 		}
-		TIM2->SR &= ~TIM_SR_UIF;
+		TIM3->SR &= ~TIM_SR_UIF;
 	}
 }
 
@@ -119,14 +116,17 @@ u8 iot_connect_wifi(const char* ssid, const char* passwd) {
 	do {
 		IWDG->KR = 0xAAAA;
 		u1_printf("设置esp8266为STA模式 \r\n");
-		if (esp8266_send_cmd("AT+CWMODE=1", "OK", 200, NULL, 0)) {
+		memset(buf, 0, 256);
+		if (esp8266_send_cmd("AT+CWMODE=1", "OK", 200, buf, 256)) {
 			g_net_status = WIFI_NoInit;
+			u1_printf("****%s\r\n", buf);
 			continue;
 		}
-		u1_printf("开始第[%u]次连接无线网络[%s] \r\n", times, ssid);
-		snprintf(buf, 64, "AT+CWJAP=\"%s\",\"%s\"", ssid, passwd);
-		if (esp8266_send_cmd(buf, "OK", 2000, NULL, 0)) {
-			if (times++ > MAX_CONNECT_TIMES) {
+		
+		u1_printf("开始第[%u]次连接无线网络[%s] \r\n", times++, ssid);
+		snprintf(buf, 64, "AT+CWJAP_CUR=\"%s\",\"%s\"", ssid, passwd);
+		if (esp8266_send_cmd(buf, "CONNECTED", 2000, NULL, 0)) {
+			if (times > MAX_CONNECT_TIMES) {
 				u1_printf("网络连接失败,请手动检查网络\r\n");
 				g_net_status = WIFI_NoInit;
 				return 1;
@@ -151,6 +151,7 @@ u8 iot_connect_wifi(const char* ssid, const char* passwd) {
 		break;
 	} while (1);
 	g_net_status = WIFI_Connected;
+	TIM3->CR1 &= ~TIM_CR1_CEN;
 	u1_printf("\r\n\033[36;1mDone\033[0m\r\n");
 	return 0;
 }
@@ -285,11 +286,11 @@ static u8 check_init(void) {
 		isok = 0;
 	}
 	if ((u8)iot_data->password[0] == 0xFF) {
-		u1_printf("need setpassword\r\n");
+		u1_printf("need setpwd\r\n");
 		isok = 0;
 	}
 	if ((u8)iot_data->server_ip[0] == 0xFF) {
-		u1_printf("need setserverip\r\n");
+		u1_printf("need setip\r\n");
 		isok = 0;
 	}
 	if ((u8)iot_data->secret_key[0] == 0xFF) {
@@ -305,7 +306,7 @@ static u8 check_init(void) {
 		isok = 0;
 	}
 	if (iot_data->server_port == 0xFFFF) {
-		u1_printf("need setserverport\r\n");
+		u1_printf("need setport\r\n");
 		isok = 0;
 	}
 	return isok;
