@@ -3,7 +3,7 @@
 
 void dma_config(DMA_Channel_TypeDef* DMA_CHx, u32 cpar, u32 cmar, u8 priority) {
 	RCC->AHBENR |= RCC_AHBENR_DMA1EN;
-	delay_ms(5);
+	delay_ms(1);
 	DMA_CHx->CPAR = cpar;
 	DMA_CHx->CMAR = cmar;
 	DMA_CHx->CCR = 0;

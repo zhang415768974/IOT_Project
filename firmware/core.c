@@ -31,7 +31,7 @@ void iot_init() {
 	if (check_init() == 0) {
 		while (1);
 	}
-	u1_printf("\r\n\033[31;4m欢迎使用stm32f103c8t6华慧物联网IOT控制终端 Design By 猫咪也有理想\033[0m\r\n");
+	u1_printf("\r\n\033[31;4m欢迎使用stm32f103c8t6物联网IOT控制终端 Design By 猫咪也有理想\033[0m\r\n");
 	u1_printf("当前设备型号:%s,机器码:%s,客户id:%u\r\n", iot_data->model, iot_data->machineid, iot_data->customerid);
 	// 按键中断初始化
 	exti_init();
@@ -113,19 +113,19 @@ u8 iot_connect_wifi(const char* ssid, const char* passwd) {
 	}
 	g_net_status = WIFI_Connecting;
 	times = 1;
+	u1_printf("设置esp8266为STA模式 \r\n");
+	memset(buf, 0, 256);
+	if (esp8266_send_cmd("AT+CWMODE=1", "OK", 2000, buf, 256)) {
+		g_net_status = WIFI_NoInit;
+		u1_printf("****%s\r\n", buf);
+		return 1;
+	}
 	do {
 		IWDG->KR = 0xAAAA;
-		u1_printf("设置esp8266为STA模式 \r\n");
-		memset(buf, 0, 256);
-		if (esp8266_send_cmd("AT+CWMODE=1", "OK", 200, buf, 256)) {
-			g_net_status = WIFI_NoInit;
-			u1_printf("****%s\r\n", buf);
-			continue;
-		}
-		
+		delay_ms(200);
 		u1_printf("开始第[%u]次连接无线网络[%s] \r\n", times++, ssid);
 		snprintf(buf, 64, "AT+CWJAP_CUR=\"%s\",\"%s\"", ssid, passwd);
-		if (esp8266_send_cmd(buf, "CONNECTED", 2000, NULL, 0)) {
+		if (esp8266_send_cmd(buf, "GOT IP", 2000, NULL, 0)) {
 			if (times > MAX_CONNECT_TIMES) {
 				u1_printf("网络连接失败,请手动检查网络\r\n");
 				g_net_status = WIFI_NoInit;

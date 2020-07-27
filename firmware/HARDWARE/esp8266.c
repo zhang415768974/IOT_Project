@@ -14,8 +14,8 @@ void esp8266_init(void) {
 	delay_ms(10);
 	GPIOA->ODR |= 1 << 7;
 	delay_ms(200);
-	//while (1);
 }
+
 
 static u8* esp8266_check_cmd(const char *str) {
 	if (USART2_RX_STA & 0x8000) {
