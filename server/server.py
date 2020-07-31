@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+# -*- coding: utf-8 -*-
 
 import os
 import ctypes
@@ -23,11 +24,6 @@ globalcache = {}
 
 logdirname = "temp"
 MAX_PAGE_SIZE = 100
-
-_1 = '''
-    iot#1 : tick-req
-    res#1 : tick-res
-'''
 
 
 class OpCodeEnum(object):
@@ -305,7 +301,7 @@ if __name__ == "__main__":
         for m, n in v.items():
             globalconfig[k][m] = n
     logging.info("load server config successfully!")
-    ctypes.windll.kernel32.SetConsoleTitleW("物联网IOT网关服务器 Design By 猫咪也有理想 [运行中...]")
+    ctypes.windll.kernel32.SetConsoleTitleW("华慧物联网IOT网关服务器[运行中...]")
     mysql = globalconfig["mysql"]
     try:
         globalcontext["mysql"] = pymysql.connect(host=mysql["host"], port=int(mysql["port"]), user=mysql["user"], passwd=mysql["passwd"], db=mysql["db"], charset=mysql["charset"])

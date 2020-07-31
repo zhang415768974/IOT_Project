@@ -31,7 +31,7 @@ void iot_init() {
 	if (check_init() == 0) {
 		while (1);
 	}
-	u1_printf("\r\n\033[31;4m欢迎使用stm32f103c8t6物联网IOT控制终端 Design By 猫咪也有理想\033[0m\r\n");
+	u1_printf("\r\n\033[31;4m欢迎使用stm32f103c8t6华慧物联网IOT控制终端v2.0 Design By 猫咪也有理想\033[0m\r\n");
 	u1_printf("当前设备型号:%s,机器码:%s,客户id:%u\r\n", iot_data->model, iot_data->machineid, iot_data->customerid);
 	// 按键中断初始化
 	exti_init();
