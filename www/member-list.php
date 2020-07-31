@@ -1,5 +1,6 @@
 <?php
-require_once("db_conn.php")
+require_once('app/session.php')
+require_once('db_conn.php')
 ?>
 
 <!DOCTYPE html>
@@ -176,4 +177,3 @@ if ($result->num_rows > 0) { while ($row = $result->fetch_assoc()) {
 </html>
 <?php
 $conn->close();
-?>

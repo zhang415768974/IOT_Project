@@ -1,3 +1,7 @@
+<?php
+require_once('app/session.php');
+require_once("db_conn.php")
+?>
 <!DOCTYPE html>
 <html class="x-admin-sm">
     <head>
@@ -23,7 +27,7 @@
                     <div class="layui-card">
                         <div class="layui-card-body ">
                             <blockquote class="layui-elem-quote">欢迎管理员：
-                                <span class="x-red">test111</span>！当前时间:<?php echo date("Y-m-d H:i:s");?>
+                                <span class="x-red"><?php echo $_SESSION["admin"] ?></span>！当前时间:<?php echo date("Y-m-d H:i:s");?>
                             </blockquote>
                         </div>
                     </div>
@@ -37,21 +41,21 @@
                                     <a href="javascript:;" class="x-admin-backlog-body">
                                         <h3>设备库存数</h3>
                                         <p>
-                                            <cite>66</cite></p>
+                                            <cite>4</cite></p>
                                     </a>
                                 </li>
                                 <li class="layui-col-md2 layui-col-xs6">
                                     <a href="javascript:;" class="x-admin-backlog-body">
                                         <h3>总客户数</h3>
                                         <p>
-                                            <cite>12</cite></p>
+                                            <cite>1</cite></p>
                                     </a>
                                 </li>
                                 <li class="layui-col-md2 layui-col-xs6">
                                     <a href="javascript:;" class="x-admin-backlog-body">
                                         <h3>激活设备数</h3>
                                         <p>
-                                            <cite>99</cite></p>
+                                            <cite>4</cite></p>
                                     </a>
                                 </li>
                             </ul>
@@ -65,8 +69,8 @@
                             <table class="layui-table">
                                 <tbody>
                                     <tr>
-                                        <th>xxx版本</th>
-                                        <td>1.0.180420</td></tr>
+                                        <th>Iot物联网平台版本</th>
+                                        <td>v2.0</td></tr>
                                     <tr>
                                         <th>服务器地址</th>
                                         <td><?php echo $_SERVER['SERVER_NAME'];?></td></tr>
@@ -97,25 +101,6 @@
                         </div>
                     </div>
                 </div>
-                <div class="layui-col-md12">
-                    <div class="layui-card">
-                        <div class="layui-card-header">开发团队</div>
-                        <div class="layui-card-body ">
-                            <table class="layui-table">
-                                <tbody>
-                                    <tr>
-                                        <th>版权所有</th>
-                                        <td>xuebingsi(xuebingsi)
-                                            <a href="http://x.xuebingsi.com/" target="_blank">访问官网</a></td>
-                                    </tr>
-                                    <tr>
-                                        <th>开发者</th>
-                                        <td>马志斌(113664000@qq.com)</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
                 <style id="welcome_style"></style>
                 <div class="layui-col-md12">
                     <blockquote class="layui-elem-quote layui-quote-nm">感谢layui,百度Echarts,jquery,本系统由x-admin提供技术支持。</blockquote></div>
@@ -124,3 +109,5 @@
         </div>
     </body>
 </html>
+<?php
+$conn->close();

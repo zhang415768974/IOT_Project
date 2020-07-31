@@ -1,8 +1,11 @@
+<?php
+require_once('app/session.php');
+?>
 <!doctype html>
 <html class="x-admin-sm">
     <head>
         <meta charset="UTF-8">
-        <title>后台登录-Iot物联网系统</title>
+        <title>后台登录-华慧Iot物联网系统</title>
         <meta name="renderer" content="webkit|ie-comp|ie-stand">
         <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
         <meta name="viewport" content="width=device-width,user-scalable=yes, minimum-scale=0.4, initial-scale=0.8,target-densitydpi=low-dpi" />
@@ -10,6 +13,7 @@
         <link rel="stylesheet" href="./css/font.css">
         <link rel="stylesheet" href="./css/xadmin.css">
         <!-- <link rel="stylesheet" href="./css/theme5.css"> -->
+        <script type="text/javascript" src="https://cdn.bootcss.com/jquery/3.2.1/jquery.min.js"></script>
         <script src="./lib/layui/layui.js" charset="utf-8"></script>
         <script type="text/javascript" src="./js/xadmin.js"></script>
         <!-- 让IE8/9支持媒体查询，从而兼容栅格 -->
@@ -17,16 +21,21 @@
           <script src="https://cdn.staticfile.org/html5shiv/r29/html5.min.js"></script>
           <script src="https://cdn.staticfile.org/respond.js/1.4.2/respond.min.js"></script>
         <![endif]-->
-        <script>
-            // 是否开启刷新记忆tab功能
-            // var is_remember = false;
+        <script type="text/javascript">
+            function logout() {
+                $.post("app/ajax.php?action=logout", {}, function(data) {
+                    layer.msg(data, {icon: 1,time: 1000}, function(){
+                        location.href = 'login.html'
+                    })
+                })
+            }
         </script>
     </head>
     <body class="index">
         <!-- 顶部开始 -->
         <div class="container">
             <div class="logo">
-                <a href="./index.html">Iot物联网系统</a></div>
+                <a href="./index.html">华慧Iot物联网系统</a></div>
             <div class="left_open">
                 <a><i title="展开左侧栏" class="iconfont">&#xe699;</i></a>
             </div>
@@ -55,15 +64,10 @@
             </ul>
             <ul class="layui-nav right" lay-filter="">
                 <li class="layui-nav-item">
-                    <a href="javascript:;">admin</a>
+                    <a href="javascript:;"><?php echo $_SESSION["admin"] ?></a>
                     <dl class="layui-nav-child">
-                        <!-- 二级菜单 -->
                         <dd>
-                            <a onclick="xadmin.open('个人信息','http://www.baidu.com')">个人信息</a></dd>
-                        <dd>
-                            <a onclick="xadmin.open('切换帐号','http://www.baidu.com')">切换帐号</a></dd>
-                        <dd>
-                            <a href="./login.html">退出</a></dd>
+                            <a href="javascript:logout()">退出</a></dd>
                     </dl>
                 </li>
                 <li class="layui-nav-item to-index">
@@ -100,6 +104,16 @@
                                     <i class="iconfont">&#xe6a7;</i>
                                     <cite>在线设备列表</cite></a>
                             </li>
+                            <li>
+                                <a onclick="xadmin.add_tab('激活设备列表','activity-list.html',true)">
+                                    <i class="iconfont">&#xe6a7;</i>
+                                    <cite>激活设备列表</cite></a>
+                            </li>
+                            <li>
+                                <a onclick="xadmin.add_tab('库存设备列表','store-list.html',true)">
+                                    <i class="iconfont">&#xe6a7;</i>
+                                    <cite>库存设备列表</cite></a>
+                            </li>
                         </ul>
                     </li>
                     <li>
@@ -109,7 +123,7 @@
                             <i class="iconfont nav_right">&#xe697;</i></a>
                         <ul class="sub-menu">
                             <li>
-                                <a onclick="xadmin.add_tab('管理员列表','admin-list.html',true)">
+                                <a onclick="xadmin.add_tab('管理员列表','admin-list.php',true)">
                                     <i class="iconfont">&#xe6a7;</i>
                                     <cite>管理员列表</cite></a>
                             </li>
@@ -158,5 +172,4 @@
         <!-- 右侧主体结束 -->
         <!-- 中部结束 -->
     </body>
-
 </html>

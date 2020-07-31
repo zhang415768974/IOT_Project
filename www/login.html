@@ -34,20 +34,23 @@
     </div>
 
     <script>
-        $(function  () {
+        $(function () {
             layui.use('form', function(){
               var form = layui.form;
-              // layer.msg('玩命卖萌中', function(){
-              //   //关闭后的操作
-              //   });
-              //监听提交
               form.on('submit(login)', function(data){
-                alert(JSON.stringify(data.field));
-				/*
-                layer.msg(JSON.stringify(data.field),function(){
-                    location.href='index.html'
-                });
-				*/
+               $.post("app/ajax.php?action=login",
+                    {loginname: $("input[name='username']").val(), password: $("input[name='password']").val()},
+                    function(result) {
+                        var result = jQuery.parseJSON(result);
+                        if (result.status == 0) {
+                            layer.msg(result.message, {icon: 1,time: 1000}, function(){
+                                location.href = 'index.php'
+                            })
+                        } else {
+                            layer.msg(result.message)
+                        }
+                    }
+                )
                 return false;
               });
             });
