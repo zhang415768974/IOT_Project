@@ -1,5 +1,5 @@
 <?php
-require_once('app/session.php')
+require_once('app/session.php');
 require_once('db_conn.php')
 ?>
 
@@ -35,24 +35,8 @@ require_once('db_conn.php')
             <div class="layui-row layui-col-space15">
                 <div class="layui-col-md12">
                     <div class="layui-card">
-                        <div class="layui-card-body ">
-                            <form class="layui-form layui-col-space5">
-                                <div class="layui-inline layui-show-xs-block">
-                                    <input class="layui-input"  autocomplete="off" placeholder="开始日" name="start" id="start">
-                                </div>
-                                <div class="layui-inline layui-show-xs-block">
-                                    <input class="layui-input"  autocomplete="off" placeholder="截止日" name="end" id="end">
-                                </div>
-                                <div class="layui-inline layui-show-xs-block">
-                                    <input type="text" name="username"  placeholder="请输入用户名" autocomplete="off" class="layui-input">
-                                </div>
-                                <div class="layui-inline layui-show-xs-block">
-                                    <button class="layui-btn"  lay-submit="" lay-filter="sreach"><i class="layui-icon">&#xe615;</i></button>
-                                </div>
-                            </form>
-                        </div>
                         <div class="layui-card-header">
-                            <button class="layui-btn" onclick="xadmin.open('添加用户','./member-add.html',600,400)"><i class="layui-icon"></i>添加</button>
+                            <button class="layui-btn" onclick="xadmin.open('添加客户','./member-add.html',600,400)"><i class="layui-icon"></i>添加</button>
                         </div>
                         <div class="layui-card-body layui-table-body layui-table-main">
                             <table class="layui-table layui-form">
@@ -116,64 +100,6 @@ if ($result->num_rows > 0) { while ($row = $result->fetch_assoc()) {
             </div>
         </div> 
     </body>
-    <script>
-      layui.use(['laydate','form'], function(){
-        var laydate = layui.laydate;
-        var  form = layui.form;
-
-
-        // 监听全选
-        form.on('checkbox(checkall)', function(data){
-
-          if(data.elem.checked){
-            $('tbody input').prop('checked',true);
-          }else{
-            $('tbody input').prop('checked',false);
-          }
-          form.render('checkbox');
-        }); 
-        
-        //执行一个laydate实例
-        laydate.render({
-          elem: '#start' //指定元素
-        });
-
-        //执行一个laydate实例
-        laydate.render({
-          elem: '#end' //指定元素
-        });
-
-
-      });
-
-      /*用户-删除*/
-      function member_del(obj,id){
-          layer.confirm('确认要删除吗？',function(index){
-              //发异步删除数据
-              $(obj).parents("tr").remove();
-              layer.msg('已删除!',{icon:1,time:1000});
-          });
-      }
-
-
-
-      function delAll (argument) {
-        var ids = [];
-
-        // 获取选中的id 
-        $('tbody input').each(function(index, el) {
-            if($(this).prop('checked')){
-               ids.push($(this).val())
-            }
-        });
-  
-        layer.confirm('确认要删除吗？'+ids.toString(),function(index){
-            //捉到所有被选中的，发异步进行删除
-            layer.msg('删除成功', {icon: 1});
-            $(".layui-form-checked").not('.header').parents('tr').remove();
-        });
-      }
-    </script>
 </html>
 <?php
 $conn->close();

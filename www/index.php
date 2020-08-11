@@ -105,12 +105,12 @@ require_once('app/session.php');
                                     <cite>在线设备列表</cite></a>
                             </li>
                             <li>
-                                <a onclick="xadmin.add_tab('激活设备列表','activity-list.html',true)">
+                                <a onclick="xadmin.add_tab('激活设备列表','activity-list.php',true)">
                                     <i class="iconfont">&#xe6a7;</i>
                                     <cite>激活设备列表</cite></a>
                             </li>
                             <li>
-                                <a onclick="xadmin.add_tab('库存设备列表','store-list.html',true)">
+                                <a onclick="xadmin.add_tab('库存设备列表','store-list.php',true)">
                                     <i class="iconfont">&#xe6a7;</i>
                                     <cite>库存设备列表</cite></a>
                             </li>
