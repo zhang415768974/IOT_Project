@@ -36,14 +36,14 @@ require_once('db_conn.php')
                 <div class="layui-col-md12">
                     <div class="layui-card">
                         <div class="layui-card-header">
-                            <button class="layui-btn" onclick="xadmin.open('添加客户','./member-add.html',600,520)"><i class="layui-icon"></i>添加</button>
+                            <button class="layui-btn" onclick="xadmin.open('添加客户','./member-add.php',600,520)"><i class="layui-icon"></i>添加</button>
                         </div>
                         <div class="layui-card-body layui-table-body layui-table-main">
                             <table class="layui-table layui-form">
                                 <thead>
                                   <tr>
                                     <th>ID</th>
-                                    <th>用户名</th>
+                                    <th>客户名</th>
                                     <th>登录名</th>
                                     <th>手机</th>
                                     <th>地址</th>
@@ -66,10 +66,10 @@ if ($result->num_rows > 0) { while ($row = $result->fetch_assoc()) {
                                     <td><?php echo $row["add_time"]; ?></td>
                                     <td><?php echo $row["remark"]; ?></td>
                                     <td class="td-manage">
-                                      <a title="编辑"  onclick="xadmin.open('编辑','member-edit.html',600,400)" href="javascript:;">
+                                      <a title="编辑"  onclick="xadmin.open('编辑','member-edit.php?uid=<?php echo $row["id"]; ?>',600,400)" href="javascript:;">
                                         <i class="layui-icon">&#xe642;</i>
                                       </a>
-                                      <a onclick="xadmin.open('修改密码','member-password.html',600,400)" title="修改密码" href="javascript:;">
+                                      <a onclick="xadmin.open('重置密码','member-password.php?uid=<?php echo $row["id"]; ?>',600,300)" title="重置密码" href="javascript:;">
                                         <i class="layui-icon">&#xe631;</i>
                                       </a>
                                       <a title="删除" onclick="member_del(this,<?php echo $row["id"]; ?>)" href="javascript:;">

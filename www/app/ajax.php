@@ -81,7 +81,7 @@ if ($action == 'login') {
 	$conn->close();
 	echo json_encode($arr);
 } elseif ($action == 'delcustomer') {
-	$userid = (int)mysqli_real_escape_string($conn, trim($_POST['userid']));
+	$userid = (int)trim($_POST['userid']);
 	$sql = "select id from tb_device where customerid=".$userid." limit 1";
 	$result = mysqli_query($conn, $sql);
 	if (mysqli_num_rows($result) > 0) { 
@@ -98,4 +98,33 @@ if ($action == 'login') {
 	}
 	$conn->close();
 	echo json_encode($arr);
+} elseif ($action == 'reset_memberpass') {
+	$userid = (int)trim($_POST['uid']);
+	$password = md5(trim($_POST['newpass']));
+	$sql = "update tb_customer set loginpasswd='".$password."' where id=".$userid;
+	if (mysqli_query($conn, $sql)) {
+		$arr['status'] = 0;
+	} else {
+		$arr['status'] = 1;
+		$arr['message'] = '重置密码发生错误: ' . mysqli_error($conn);
+	}
+	$conn->close();
+	echo json_encode($arr);
+} elseif ($action == 'edit_member') {
+	$userid = (int)trim($_POST['uid']);
+	$username = mysqli_real_escape_string($conn, trim($_POST['username']));
+	$mobile = mysqli_real_escape_string($conn, trim($_POST['mobile']));
+	$address = mysqli_real_escape_string($conn, trim($_POST['address']));
+	$remark = mysqli_real_escape_string($conn, trim($_POST['remark']));
+	$sql = "update tb_customer set username='".$username."',mobile='".$mobile."',address='".$address."',remark='".$remark."' where id=".$userid;
+	if (mysqli_query($conn, $sql)) {
+		$arr['status'] = 0;
+	} else {
+		$arr['status'] = 1;
+		$arr['message'] = '修改客户资料发生错误: ' . mysqli_error($conn);
+	}
+	$conn->close();
+	echo json_encode($arr);
+} else {
+	die("forbid");
 }

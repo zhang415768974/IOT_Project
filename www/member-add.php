@@ -1,3 +1,6 @@
+<?php
+require_once('app/session.php');
+?>
 <!DOCTYPE html>
 <html class="x-admin-sm">
     
@@ -26,7 +29,7 @@
                         <label for="username" class="layui-form-label">
                             <span class="x-red">*</span>客户名</label>
                         <div class="layui-input-inline">
-                            <input type="text" id="username" name="username" class="layui-input"></div>
+                            <input type="text" id="username" name="username" required="" lay-verify="required" class="layui-input"></div>
                         </div>
                     <div class="layui-form-item">
                         <label for="loginname" class="layui-form-label">
@@ -34,7 +37,7 @@
                         <div class="layui-input-inline">
                             <input type="text" id="loginname" name="loginname" class="layui-input"></div>
 							<div class="layui-form-mid layui-word-aux">
-                            <span class="x-red">*</span>将会成为唯一的登入名</div>
+                            <span class="x-red">*</span>将会成为唯一的登入名,一经填写不可修改</div>
                     </div>
 					<div class="layui-form-item">
                         <label for="mobile" class="layui-form-label">
