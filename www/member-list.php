@@ -2,7 +2,6 @@
 require_once('app/session.php');
 require_once('db_conn.php')
 ?>
-
 <!DOCTYPE html>
 <html class="x-admin-sm">
     <head>
@@ -13,6 +12,7 @@ require_once('db_conn.php')
         <meta name="viewport" content="width=device-width,user-scalable=yes, minimum-scale=0.4, initial-scale=0.8,target-densitydpi=low-dpi" />
         <link rel="stylesheet" href="./css/font.css">
         <link rel="stylesheet" href="./css/xadmin.css">
+		<script type="text/javascript" src="./js/jquery.min.js"></script>
         <script src="./lib/layui/layui.js" charset="utf-8"></script>
         <script type="text/javascript" src="./js/xadmin.js"></script>
         <!--[if lt IE 9]>
@@ -36,7 +36,7 @@ require_once('db_conn.php')
                 <div class="layui-col-md12">
                     <div class="layui-card">
                         <div class="layui-card-header">
-                            <button class="layui-btn" onclick="xadmin.open('添加客户','./member-add.html',600,400)"><i class="layui-icon"></i>添加</button>
+                            <button class="layui-btn" onclick="xadmin.open('添加客户','./member-add.html',600,520)"><i class="layui-icon"></i>添加</button>
                         </div>
                         <div class="layui-card-body layui-table-body layui-table-main">
                             <table class="layui-table layui-form">
@@ -45,7 +45,6 @@ require_once('db_conn.php')
                                     <th>ID</th>
                                     <th>用户名</th>
                                     <th>登录名</th>
-                                    <th>性别</th>
                                     <th>手机</th>
                                     <th>地址</th>
                                     <th>注册时间</th>
@@ -62,7 +61,6 @@ if ($result->num_rows > 0) { while ($row = $result->fetch_assoc()) {
                                     <td><?php echo $row["id"]; ?></td>
                                     <td><?php echo $row["username"]; ?></td>
                                     <td><?php echo $row["loginname"]; ?></td>
-                                    <td><?php echo $row["sex"]; ?></td>
                                     <td><?php echo $row["mobile"]; ?></td>
                                     <td><?php echo $row["address"]; ?></td>
                                     <td><?php echo $row["add_time"]; ?></td>
@@ -74,7 +72,7 @@ if ($result->num_rows > 0) { while ($row = $result->fetch_assoc()) {
                                       <a onclick="xadmin.open('修改密码','member-password.html',600,400)" title="修改密码" href="javascript:;">
                                         <i class="layui-icon">&#xe631;</i>
                                       </a>
-                                      <a title="删除" onclick="member_del(this,'要删除的id')" href="javascript:;">
+                                      <a title="删除" onclick="member_del(this,<?php echo $row["id"]; ?>)" href="javascript:;">
                                         <i class="layui-icon">&#xe640;</i>
                                       </a>
                                     </td>
@@ -83,23 +81,26 @@ if ($result->num_rows > 0) { while ($row = $result->fetch_assoc()) {
                                 </tbody>
                             </table>
                         </div>
-                        <div class="layui-card-body ">
-                            <div class="page">
-                                <div>
-                                  <a class="prev" href="">&lt;&lt;</a>
-                                  <a class="num" href="">1</a>
-                                  <span class="current">2</span>
-                                  <a class="num" href="">3</a>
-                                  <a class="num" href="">489</a>
-                                  <a class="next" href="">&gt;&gt;</a>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
-        </div> 
+        </div>
     </body>
+<script>
+function member_del(obj, uid) {
+	layer.confirm('确认要删除吗？', function(index) {
+		$.post("app/ajax.php?action=delcustomer", {userid: uid}, function(result){
+			var result = jQuery.parseJSON(result);
+			if (result.status == 0) {
+				$(obj).parents("tr").remove();
+				layer.msg('已删除!',{icon:1, time:1000});
+			} else {
+				layer.msg(result.message);
+			}
+		})
+	});
+}
+</script>
 </html>
 <?php
 $conn->close();

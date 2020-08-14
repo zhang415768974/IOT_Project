@@ -1,6 +1,7 @@
 <?php
 session_start();
 require '../db_conn.php';
+header('Content-type: text/plan;charset=utf-8'); 
 $action = $_GET['action'];
 if ($action == 'login') {
     $loginname = mysqli_real_escape_string($conn, trim($_POST['loginname']));
@@ -17,6 +18,7 @@ if ($action == 'login') {
         $arr['status'] = 1;
         $arr['message'] = '用户名或密码错误';
     }
+	mysqli_free_result($result);
     $conn->close();
     echo json_encode($arr);
 } elseif ($action == 'logout') {
@@ -38,7 +40,7 @@ if ($action == 'login') {
 		if (mysqli_query($conn, $sql)) {
 			$arr['status'] = 0;
 		} else {
-			$arr['status'] = 1;
+			$arr['status'] = 2;
 			$arr['message'] = '添加设备发生错误: ' . mysqli_error($conn);
 		}
 	}
@@ -52,6 +54,47 @@ if ($action == 'login') {
 	} else {
 		$arr['status'] = 1;
 		$arr['message'] = '删除设备发生错误: ' . mysqli_error($conn);
+	}
+	$conn->close();
+	echo json_encode($arr);
+} elseif ($action == 'addcustomer') {
+	$username = mysqli_real_escape_string($conn, trim($_POST['username']));
+	$loginname = mysqli_real_escape_string($conn, trim($_POST['loginname']));
+	$mobile = mysqli_real_escape_string($conn, trim($_POST['mobile']));
+	$address = mysqli_real_escape_string($conn, trim($_POST['address']));
+	$pass = md5(trim($_POST['pass']));
+	$remark = mysqli_real_escape_string($conn, trim($_POST['remark']));
+	$sql = "select id from tb_customer where loginname='".$loginname."' limit 1";
+	$result = mysqli_query($conn, $sql);
+	if (mysqli_num_rows($result) > 0) {
+		$arr['status'] = 1;
+		$arr['message'] = '登录名['.$loginname.']已有重复';
+	} else {
+		$sql = "insert into tb_customer (loginname, loginpasswd, username, address, mobile, remark) values ('".$loginname."','".$pass."','".$username."','".$address."','".$mobile."','".$remark."')";
+		if (mysqli_query($conn, $sql)) {
+			$arr['status'] = 0;
+		} else {
+			$arr['status'] = 2;
+			$arr['message'] = '添加新客户发生错误: ' . mysqli_error($conn);
+		}
+	}
+	$conn->close();
+	echo json_encode($arr);
+} elseif ($action == 'delcustomer') {
+	$userid = (int)mysqli_real_escape_string($conn, trim($_POST['userid']));
+	$sql = "select id from tb_device where customerid=".$userid." limit 1";
+	$result = mysqli_query($conn, $sql);
+	if (mysqli_num_rows($result) > 0) { 
+		$arr['status'] = 1;
+		$arr['message'] = '该客户还有激活的设备,无法直接删除';
+	} else {
+		$sql = "delete from tb_customer where id=".$userid;
+		if (mysqli_query($conn, $sql)) {
+			$arr['status'] = 0;
+		} else {
+			$arr['status'] = 2;
+			$arr['message'] = '删除客户发生错误: ' . mysqli_error($conn);
+		}
 	}
 	$conn->close();
 	echo json_encode($arr);
