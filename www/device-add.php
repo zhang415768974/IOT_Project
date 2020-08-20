@@ -1,3 +1,6 @@
+<?php
+require_once('app/session.php');
+?>
 <!DOCTYPE html>
 <html class="x-admin-sm">
     

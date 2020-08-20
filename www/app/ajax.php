@@ -125,6 +125,19 @@ if ($action == 'login') {
 	}
 	$conn->close();
 	echo json_encode($arr);
+} elseif ($action == 'customer_list') {
+	$sql = "select id, username from tb_customer";
+	$result = mysqli_query($conn, $sql);
+    if (mysqli_num_rows($result) > 0) {
+		$arr['status'] = 0;
+		$arr['data'] = array();
+        while ($row = mysqli_fetch_assoc($result)) {
+			$arr['data'][$row['id']] = $row['username'];
+		}
+    }
+	mysqli_free_result($result);
+    $conn->close();
+    echo json_encode($arr);
 } else {
 	die("forbid");
 }

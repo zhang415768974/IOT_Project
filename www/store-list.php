@@ -39,7 +39,7 @@ require_once('db_conn.php')
                 <div class="layui-col-md12">
                     <div class="layui-card">
 						<div class="layui-card-header">
-                            <button class="layui-btn" onclick="xadmin.open('添加设备','./device-add.html',600,400)"><i class="layui-icon"></i>添加</button>
+                            <button class="layui-btn" onclick="xadmin.open('添加设备','./device-add.php',600,300)"><i class="layui-icon"></i>添加</button>
                         </div>
                         <div class="layui-card-body ">
                             <table class="layui-table layui-form">
@@ -68,7 +68,7 @@ if ($result->num_rows > 0) { while ($row = $result->fetch_assoc()) {
 									<td><?php echo $row["endtime"]; ?></td>
 									<td><?php echo $row["remark"]; ?></td>
 									<td class="td-manage">
-                                      <a title="激活"  onclick="xadmin.open('激活','device-edit.html',600,400)" href="javascript:;">
+                                      <a title="激活设备"  onclick="xadmin.open('激活设备','device-activation.php?id=<?php echo $row["id"]; ?>',600,480)" href="javascript:;">
                                         <i class="layui-icon">&#xe642;</i>
                                       </a>
                                       <a title="删除" onclick="device_del(this,<?php echo $row["id"]; ?>)" href="javascript:;">
