@@ -48,15 +48,13 @@ require_once('db_conn.php')
 										<th>ID</th>
 										<th>机器码</th>
 										<th>型号</th>
-										<th>开始时间</th>
-										<th>截止时间</th>
 										<th>备注</th>
 										<th>操作</th>
 									</tr>
                                 </thead>
                                 <tbody>
 <?php
-$sql = "select id, machineid, model, starttime, endtime, remark from tb_device where customerid = 0 order by id desc limit 10";
+$sql = "select id, machineid, model, remark from tb_device where customerid = 0 order by id desc limit 10";
 $result = $conn->query($sql);
 if ($result->num_rows > 0) { while ($row = $result->fetch_assoc()) {
 ?>
@@ -64,8 +62,6 @@ if ($result->num_rows > 0) { while ($row = $result->fetch_assoc()) {
                                     <td><?php echo $row["id"]; ?></td>
                                     <td><?php echo $row["machineid"]; ?></td>
                                     <td><?php echo $row["model"]; ?></td>
-                                    <td><?php echo $row["starttime"]; ?></td>
-									<td><?php echo $row["endtime"]; ?></td>
 									<td><?php echo $row["remark"]; ?></td>
 									<td class="td-manage">
                                       <a title="激活设备"  onclick="xadmin.open('激活设备','device-activation.php?id=<?php echo $row["id"]; ?>',600,480)" href="javascript:;">

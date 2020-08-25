@@ -138,6 +138,31 @@ if ($action == 'login') {
 	mysqli_free_result($result);
     $conn->close();
     echo json_encode($arr);
+} elseif ($action == 'activatedevice') {
+	$id = (int)trim($_POST['id']);
+	$customerid = (int)trim($_POST['customerid']);
+	$start = mysqli_real_escape_string($conn, trim($_POST['start']));
+	$end = mysqli_real_escape_string($conn, trim($_POST['end']));
+	$sql = "update tb_device set customerid=".$customerid.",starttime='".$start."',endtime='".$end."' where id=".$id;
+	if (mysqli_query($conn, $sql)) {
+		$arr['status'] = 0;
+	} else {
+		$arr['status'] = 1;
+		$arr['message'] = '激活设备发生错误: ' . mysqli_error($conn);
+	}
+	$conn->close();
+    echo json_encode($arr);
+} elseif ($action == 'releasedevice') {
+	$id = (int)trim($_POST['id']);
+	$sql = "update tb_device set customerid=0,starttime=null,endtime=null where id=".$id;
+	if (mysqli_query($conn, $sql)) {
+		$arr['status'] = 0;
+	} else {
+		$arr['status'] = 1;
+		$arr['message'] = '释放设备发生错误: ' . mysqli_error($conn);
+	}
+	$conn->close();
+    echo json_encode($arr);
 } else {
 	die("forbid");
 }

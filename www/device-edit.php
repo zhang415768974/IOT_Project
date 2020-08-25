@@ -68,18 +68,16 @@ require_once('db_conn.php')
                           <span class="x-red">*</span>客户名
                     </label>
                     <div class="layui-input-inline">
-                        <select id="members" name="members" class="valid">
+						<input type="text" id="model" name="model" disabled="" value= 
                             <?php
                                 mysqli_free_result($result);
-                                $sql = "select id, username from tb_customer";
+                                $sql = "select username from tb_customer where id = ".$row['customerid']." limit 1";
                                 $result = mysqli_query($conn, $sql);
                                 if (mysqli_num_rows($result) > 0) {
-                                    while ($row = mysqli_fetch_assoc($result)) {
-                                        echo '<option value='. $row['id'] . '>' . $row['username'] . '</option>';
-                                    }
+									echo mysqli_fetch_assoc($result)['username'];
                                 }
                             ?>
-                        </select>
+							class="layui-input">
                     </div>
                   </div>
                   <div class="layui-form-item  layui-col-space5">
@@ -87,10 +85,10 @@ require_once('db_conn.php')
                           <span class="x-red">*</span>生效时间
                       </label>
                       <div class="layui-inline">
-                        <input class="layui-input" placeholder="开始时间" name="start" id="start" required="" lay-verify="required">
+                        <input class="layui-input" placeholder="开始时间" name="start" id="start" required="" lay-verify="required" value="<?php echo $row['starttime'];?>">
                         </div>
                       <div class="layui-inline">
-                      <input class="layui-input" placeholder="结束时间" name="end" id="end" required="" lay-verify="required">
+                      <input class="layui-input" placeholder="结束时间" name="end" id="end" required="" lay-verify="required" value="<?php echo $row['endtime'];?>">
                         </div>
                   </div>
                   <div class="layui-form-item">
@@ -128,16 +126,15 @@ require_once('db_conn.php')
                 //监听提交
                 form.on('submit(save)',
 					function(data) {
-						$.post("app/ajax.php?action=activatedevice",{
+						$.post("app/ajax.php?action=updatedevice",{
 							id: <?php echo $id;?>,
-							customerid: $("select[name='members']").val(),
 							start: $("input[name='start']").val(),
 							end: $("input[name='end']").val()
 							
 						}, function(result){
 							var result = jQuery.parseJSON(result);
 							if (result.status == 0) {
-								layer.alert("激活设备成功", {
+								layer.alert("修改设备时间成功", {
 								icon: 6
 							},
 							function() {

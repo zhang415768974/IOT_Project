@@ -13,6 +13,7 @@ require_once('db_conn.php')
         <meta name="viewport" content="width=device-width,user-scalable=yes, minimum-scale=0.4, initial-scale=0.8,target-densitydpi=low-dpi" />
         <link rel="stylesheet" href="./css/font.css">
         <link rel="stylesheet" href="./css/xadmin.css">
+		<script type="text/javascript" src="./js/jquery.min.js"></script>
         <script src="./lib/layui/layui.js" charset="utf-8"></script>
         <script type="text/javascript" src="./js/xadmin.js"></script>
 		<style>
@@ -71,8 +72,11 @@ if ($result->num_rows > 0) { while ($row = $result->fetch_assoc()) {
 									<td><?php echo $row["endtime"]; ?></td>
 									<td><?php echo $row["remark"]; ?></td>
 									<td class="td-manage">
-                                      <a title="编辑"  onclick="xadmin.open('编辑','member-edit.html',600,400)" href="javascript:;">
+                                      <a title="修改有效期"  onclick="xadmin.open('修改有效期','device-edit.php?id=<?php echo $row["id"]; ?>',600,480)" href="javascript:;">
                                         <i class="layui-icon">&#xe642;</i>
+                                      </a>
+									  <a title="释放设备" onclick="device_release(this,<?php echo $row["id"]; ?>)" href="javascript:;">
+                                        <i class="layui-icon">&#xe640;</i>
                                       </a>
                                     </td>
 								</tr>
@@ -85,6 +89,21 @@ if ($result->num_rows > 0) { while ($row = $result->fetch_assoc()) {
             </div>
         </div>
     </body>
+<script>
+function device_release(obj, did) {
+	layer.confirm('确认要释放设备吗？', function(index) {
+		$.post("app/ajax.php?action=releasedevice", {id: did}, function(result){
+			var result = jQuery.parseJSON(result);
+			if (result.status == 0) {
+				$(obj).parents("tr").remove();
+				layer.msg('已释放设备!',{icon:1, time:1000});
+			} else {
+				layer.msg(result.message);
+			}
+		})
+	});
+}
+</script>
 </html>
 <?php
 $conn->close();
